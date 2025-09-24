@@ -1,7 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
+set -xeuo pipefail
 
-python $1.py 
+python $1.py
 pdflatex $1.tex
 
 rm *.aux *.log *.vscodeLog
