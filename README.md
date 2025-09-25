@@ -24,9 +24,8 @@ from plotnn import Diagram, Input, Conv, Connection, Skip, Pool
 
 d = (
     Diagram()
-    .add(Input(pathfile="path/to/image.jpg", name="input", width=8, height=8))
     .add(Conv(name="conv1", n_filer=64, width=2, height=32, depth=32))
-    .add(Connection(of="input", to="conv1"))
+    .add(Connection(of="conv1", to="pool1"))
     .add(Pool(name="pool1", width=1, height=16, depth=16))
     .add(Connection(of="conv1", to="pool1"))
     .add(Skip(of="conv1", to="pool1", pos=1.25))
