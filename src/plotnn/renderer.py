@@ -79,6 +79,7 @@ class DiagramRenderer:
         # Compile to PDF
         return self.latex_compiler.compile_to_pdf(document, output_path, keep_tex=keep_tex)
 
+    @DeprecationWarning
     def render_to_png(
         self,
         elements: list[Element] | list[str],
@@ -110,6 +111,7 @@ class DiagramRenderer:
             self.render_to_pdf(elements, pdf_path, inline_styles, include_colors, keep_tex=keep_tex)
             return self.format_converter.pdf_to_format(pdf_path, png_path, "png", dpi=dpi)
 
+    @DeprecationWarning
     def render_to_svg(
         self,
         elements: list[Element] | list[str],
