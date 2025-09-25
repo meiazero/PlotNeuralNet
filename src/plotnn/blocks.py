@@ -8,16 +8,35 @@ from pathlib import Path
 from typing import Self
 
 from .layers import (
+    to_activation,
+    to_add,
+    to_concat,
     to_connection,
     to_conv,
     to_conv_conv_relu,
     to_conv_res,
     to_conv_softmax,
+    to_depthwise_conv,
+    to_embedding,
+    to_feed_forward,
+    to_flatten,
+    to_generic_box,
     to_input,
+    to_layer_norm,
+    to_multihead_attention,
+    to_normalization,
+    to_output_projection,
     to_pool,
+    to_positional_encoding,
+    to_rnn_cell,
+    to_separable_conv,
     to_skip,
     to_softmax,
+    to_split,
+    to_squeeze_excitation,
     to_sum,
+    to_transformer_block,
+    to_transpose_conv,
     to_unpool,
 )
 from .renderer import DiagramRenderer
@@ -354,6 +373,195 @@ class Dense(Element):
         ]
 
 
+# ---------------- Transformer specific elements -----------------
+
+
+@dataclass
+class TokenEmbedding(Element):
+    name: str
+    vocab_size: int = 30522
+    model_dim: int = 768
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 1
+    height: int = 30
+    depth: int = 30
+    caption: str = "Embed"
+
+    def build(self) -> list[str]:
+        return [
+            to_embedding(
+                name=self.name,
+                vocab_size=self.vocab_size,
+                model_dim=self.model_dim,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class PositionalEncoding(Element):
+    name: str
+    seq_len: int = 512
+    model_dim: int = 768
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 1
+    height: int = 30
+    depth: int = 30
+    caption: str = "PosEnc"
+
+    def build(self) -> list[str]:
+        return [
+            to_positional_encoding(
+                name=self.name,
+                seq_len=self.seq_len,
+                model_dim=self.model_dim,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class MultiHeadAttention(Element):
+    name: str
+    heads: int = 8
+    model_dim: int = 768
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 2
+    height: int = 28
+    depth: int = 28
+    caption: str = "MHA"
+
+    def build(self) -> list[str]:
+        return [
+            to_multihead_attention(
+                name=self.name,
+                heads=self.heads,
+                model_dim=self.model_dim,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class FeedForward(Element):
+    name: str
+    model_dim: int = 768
+    hidden_dim: int = 3072
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 2
+    height: int = 26
+    depth: int = 26
+    caption: str = "FFN"
+
+    def build(self) -> list[str]:
+        return [
+            to_feed_forward(
+                name=self.name,
+                model_dim=self.model_dim,
+                hidden_dim=self.hidden_dim,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class LayerNorm(Element):
+    name: str
+    model_dim: int = 768
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 1
+    height: int = 20
+    depth: int = 20
+    caption: str = "LN"
+
+    def build(self) -> list[str]:
+        return [
+            to_layer_norm(
+                name=self.name,
+                model_dim=self.model_dim,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class Add(Element):
+    name: str
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    radius: float = 2.5
+    caption: str = "+"
+
+    def build(self) -> list[str]:
+        return [
+            to_add(
+                name=self.name,
+                offset=self.offset,
+                to=self.to,
+                radius=self.radius,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class OutputProjection(Element):
+    name: str
+    vocab_size: int = 30522
+    model_dim: int = 768
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 1
+    height: int = 28
+    depth: int = 28
+    caption: str = "Proj"
+
+    def build(self) -> list[str]:
+        return [
+            to_output_projection(
+                name=self.name,
+                vocab_size=self.vocab_size,
+                model_dim=self.model_dim,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
 @dataclass
 class Dropout(Element):
     """Dropout layer."""
@@ -381,6 +589,314 @@ class Dropout(Element):
                 caption=self.caption,
             )
         ]
+
+
+# ---------------- Extended generic elements -----------------
+
+
+@dataclass
+class Activation(Element):
+    name: str
+    act: str = "ReLU"
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 1
+    height: int = 18
+    depth: int = 18
+    caption: str | None = None
+
+    def build(self) -> list[str]:
+        return [
+            to_activation(
+                name=self.name,
+                act=self.act,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class Normalization(Element):
+    name: str
+    kind: str = "BN"
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 1
+    height: int = 18
+    depth: int = 18
+    caption: str | None = None
+
+    def build(self) -> list[str]:
+        return [
+            to_normalization(
+                name=self.name,
+                kind=self.kind,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class RNNCell(Element):
+    name: str
+    cell: str = "LSTM"
+    hidden_size: int = 512
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 2
+    height: int = 26
+    depth: int = 26
+    caption: str | None = None
+
+    def build(self) -> list[str]:
+        return [
+            to_rnn_cell(
+                name=self.name,
+                cell=self.cell,
+                hidden_size=self.hidden_size,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class GenericBox(Element):
+    name: str
+    label_left: str = " "
+    label_right: str = " "
+    zlabel: str | int = " "
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int | tuple[int, int] = 1
+    height: int = 20
+    depth: int = 20
+    caption: str = " "
+    fill: str = "\\GenericColor"
+    opacity: float = 0.35
+
+    def build(self) -> list[str]:
+        return [
+            to_generic_box(
+                name=self.name,
+                label_left=self.label_left,
+                label_right=self.label_right,
+                zlabel=self.zlabel,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+                fill=self.fill,
+                opacity=self.opacity,
+            )
+        ]
+
+
+# --- New extended layer dataclasses ---
+@dataclass
+class DepthwiseConv(Element):
+    name: str
+    channels: int
+    kernel: str = "3x3"
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 1
+    height: int = 30
+    depth: int = 30
+    caption: str = "DW"
+
+    def build(self) -> list[str]:  # noqa: D401
+        return [
+            to_depthwise_conv(
+                name=self.name,
+                channels=self.channels,
+                kernel=self.kernel,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class SeparableConv(Element):
+    name: str
+    in_channels: int
+    out_channels: int
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: tuple[int, int] = (1, 1)
+    height: int = 30
+    depth: int = 30
+    caption: str = "SepConv"
+
+    def build(self) -> list[str]:
+        return [
+            to_separable_conv(
+                name=self.name,
+                in_channels=self.in_channels,
+                out_channels=self.out_channels,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class TransposeConv(Element):
+    name: str
+    s_filer: int = 256
+    n_filer: int = 64
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 2
+    height: int = 30
+    depth: int = 30
+    caption: str = "DeConv"
+
+    def build(self) -> list[str]:
+        return [
+            to_transpose_conv(
+                name=self.name,
+                s_filer=self.s_filer,
+                n_filer=self.n_filer,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class Flatten(Element):
+    name: str
+    features: int
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 1
+    height: int = 12
+    depth: int = 12
+    caption: str = "Flatten"
+
+    def build(self) -> list[str]:
+        return [
+            to_flatten(
+                name=self.name,
+                features=self.features,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class SqueezeExcitation(Element):
+    name: str
+    channels: int
+    se_ratio: float = 0.25
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 2
+    height: int = 18
+    depth: int = 18
+    caption: str = "SE"
+
+    def build(self) -> list[str]:
+        return [
+            to_squeeze_excitation(
+                name=self.name,
+                channels=self.channels,
+                se_ratio=self.se_ratio,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class TransformerBlock(Element):
+    name: str
+    model_dim: int = 768
+    heads: int = 8
+    mlp_dim: int = 3072
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: tuple[int, int] = (2, 2)
+    height: int = 34
+    depth: int = 34
+    caption: str = "Block"
+
+    def build(self) -> list[str]:
+        return [
+            to_transformer_block(
+                name=self.name,
+                model_dim=self.model_dim,
+                heads=self.heads,
+                mlp_dim=self.mlp_dim,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class Concat(Element):
+    name: str
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    radius: float = 2.2
+
+    def build(self) -> list[str]:
+        return [to_concat(name=self.name, offset=self.offset, to=self.to, radius=self.radius)]
+
+
+@dataclass
+class Split(Element):
+    name: str
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    radius: float = 2.2
+
+    def build(self) -> list[str]:
+        return [to_split(name=self.name, offset=self.offset, to=self.to, radius=self.radius)]
 
 
 class Block(Element):

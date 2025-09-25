@@ -1,6 +1,6 @@
 [project]
 name = "plotnn"
-version = "0.1.1"                                                         # Bumped for refactor
+version = "0.2.0"                                                         # Added extended layer set
 description = "Gerador de diagramas de redes neurais em LaTeX/TikZ"
 authors = [{ name = "Emanuel Avila", email = "avilaemanueel@gmail.com" }]
 

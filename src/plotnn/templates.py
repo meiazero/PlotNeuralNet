@@ -46,6 +46,9 @@ class LaTeXTemplate:
 \\usetikzlibrary{positioning}
 \\usetikzlibrary{3d}
 \\usetikzlibrary{calc}
+\\usetikzlibrary{fit}
+\\usetikzlibrary{arrows.meta}
+\\usetikzlibrary{shapes.geometric}
 """
             + _inline_layers_tex()
         )
@@ -56,13 +59,15 @@ class LaTeXTemplate:
         pathlayers = _layers_dir_path()
         if not pathlayers.endswith("/"):
             pathlayers += "/"
-
         return f"""\\documentclass[border=8pt, multi, tikz]{{standalone}}
 \\usepackage{{import}}
 \\subimport{{{pathlayers}}}{{init}}
 \\usetikzlibrary{{positioning}}
 \\usetikzlibrary{{3d}}
 \\usetikzlibrary{{calc}}
+\\usetikzlibrary{{fit}}
+\\usetikzlibrary{{arrows.meta}}
+\\usetikzlibrary{{shapes.geometric}}
 """
 
     @staticmethod
@@ -77,6 +82,17 @@ class LaTeXTemplate:
 \\def\\FcReluColor{rgb:blue,5;red,5;white,4}
 \\def\\SoftmaxColor{rgb:magenta,5;black,7}
 \\def\\SumColor{rgb:blue,5;green,15}
+\\def\\ActivationColor{rgb:yellow,2;green,5}
+\\def\\NormColor{rgb:blue,2;white,5}
+\\def\\RNNColor{rgb:green,4;blue,2;white,5}
+\\def\\OpColor{rgb:magenta,3;black,3}
+\\def\\GenericColor{rgb:black,2;white,8}
+\\def\\DepthwiseColor{rgb:yellow,3;green,2;white,6}
+\\def\\SepConvColor{rgb:yellow,5;green,4;white,4}
+\\def\\TransposeConvColor{rgb:blue,4;green,3;white,5}
+\\def\\FlattenColor{rgb:black,3;white,9}
+\\def\\SEColor{rgb:blue,6;green,2;white,2}
+\\def\\TransformerBlockColor{rgb:magenta,4;blue,4;white,5}
 """
 
     @staticmethod
