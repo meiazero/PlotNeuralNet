@@ -12,7 +12,7 @@ def _layers_dir_path() -> str:
 
     Retorna um caminho POSIX (slashes) que aponta para o diretório 'latex/layers' do pacote.
     """
-    path = Path(__file__).parent / "latex" / "layers"
+    path = Path(__file__).parent.parent / "layers"
     return str(path.resolve()).replace("\\", "/")
 
 
@@ -377,15 +377,8 @@ def compile_tex_to_pdf(tex_content: str, out_pdf: os.PathLike[str] | str) -> Pat
         tex_file = tmp / "diagram.tex"
         tex_file.write_text(tex_content, encoding="utf-8")
 
-        if _which("latexmk"):
-            cmd = ["latexmk", "-pdf", "-interaction=nonstopmode", tex_file.name]
-            subprocess.run(cmd, cwd=tmp, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        else:
-            if not _which("pdflatex"):
-                raise RuntimeError("Nenhum motor LaTeX encontrado (latexmk/pdflatex). Instale um TeX Live.")
-            for _ in range(2):
-                cmd = ["pdflatex", "-interaction=nonstopmode", tex_file.name]
-                subprocess.run(cmd, cwd=tmp, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        cmd = ["pdflatex", "-interaction=nonstopmode", tex_file.name]
+        subprocess.run(cmd, cwd=tmp, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
         produced = tmp / "diagram.pdf"
         if not produced.exists():
