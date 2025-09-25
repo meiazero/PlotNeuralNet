@@ -1,3 +1,5 @@
+# Plot-Neural Network
+
 ## Recommended Tools
 
 - [Poetry](https://python-poetry.org)
@@ -22,4 +24,4 @@ Following are some network representations:
 
 # Acknowledgements
 
-**PlotNeuralNet** [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2526396.svg)](https://doi.org/10.5281/zenodo.2526396)
+**plotnn** [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2526396.svg)](https://doi.org/10.5281/zenodo.2526396)
