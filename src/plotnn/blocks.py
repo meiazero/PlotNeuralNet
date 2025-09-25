@@ -1,89 +1,102 @@
 from __future__ import annotations
 
-# from typing import Iterable, Sequence
+import logging
+from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Self
 
-from . import layers as L
+from .layers import (
+    to_connection,
+    to_conv,
+    to_conv_conv_relu,
+    to_conv_res,
+    to_conv_softmax,
+    to_input,
+    to_pool,
+    to_skip,
+    to_softmax,
+    to_sum,
+    to_unpool,
+)
 
-__all__ = [
-    "Element",
-    "Leaf",
-    "Block",
-    "Input",
-    "Conv",
-    "ConvConvRelu",
-    "Pool",
-    "UnPool",
-    "ConvRes",
-    "ConvSoftMax",
-    "SoftMax",
-    "Sum",
-    "Connection",
-    "Skip",
-    "TwoConvPoolBlock",
-    "UnconvBlock",
-    "ResBlock",
-    "Diagram",
-    # Legacy wrappers
-    "block_2ConvPool",
-    "block_Unconv",
-    "block_Res",
-]
+logger = logging.getLogger(__name__)
 
 
-class Element:
-    """Peça básica que sabe se transformar em fragmentos LaTeX."""
+class Element(ABC):
+    """Base class for diagram elements that generate LaTeX snippets."""
 
-    def build(self) -> list[str]:  # pragma: no cover - simples delegação
+    @abstractmethod
+    def build(self) -> list[str]:
+        """Generate LaTeX snippets for this element."""
         raise NotImplementedError
 
 
 @dataclass
 class Leaf(Element):
+    """Simple element with fixed LaTeX."""
+
     tex: str
 
     def build(self) -> list[str]:
         return [self.tex]
 
 
-# Folhas utilitárias (camadas)
+# Common Layers as Dataclasses
 @dataclass
 class Input(Element):
-    pathfile: str
+    """Input layer with image."""
+
+    pathfile: str | Path
     to: str = "(-3,0,0)"
-    width: float = 8
-    height: float = 8
-    name: str = "temp"
+    width: int = 8
+    height: int = 8
+    name: str = "input"
+
+    def __post_init__(self):
+        assert self.width > 0, "Width must be positive"
+        assert self.height > 0, "Height must be positive"
+        if isinstance(self.pathfile, Path):
+            self.pathfile = self.pathfile.as_posix()
 
     def build(self) -> list[str]:
-        return [L.to_input(self.pathfile, to=self.to, width=int(self.width), height=int(self.height), name=self.name)]
+        # Ensure type is str for type checkers (to_input expects str)
+        return [
+            to_input(
+                str(self.pathfile), to=self.to, width=self.width, height=self.height, name=self.name
+            )
+        ]
 
 
 @dataclass
 class Conv(Element):
+    """Convolutional layer."""
+
     name: str
     s_filer: int = 256
     n_filer: int = 64
     offset: str = "(0,0,0)"
     to: str = "(0,0,0)"
-    width: float = 1
-    height: float = 40
-    depth: float = 40
+    width: int = 1
+    height: int = 40
+    depth: int = 40
     caption: str = " "
+
+    def __post_init__(self):
+        assert self.width > 0, "Width must be positive"
 
     def build(self) -> list[str]:
         return [
-            L.to_Conv(
+            to_conv(
                 name=self.name,
                 s_filer=self.s_filer,
                 n_filer=self.n_filer,
                 offset=self.offset,
                 to=self.to,
-                width=int(self.width),
-                height=int(self.height),
-                depth=int(self.depth),
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
                 caption=self.caption,
             )
         ]
@@ -91,27 +104,29 @@ class Conv(Element):
 
 @dataclass
 class ConvConvRelu(Element):
+    """Double Conv + ReLU."""
+
     name: str
     s_filer: int = 256
     n_filer: tuple[int, int] = (64, 64)
     offset: str = "(0,0,0)"
     to: str = "(0,0,0)"
-    width: tuple[float, float] = (2, 2)
-    height: float = 40
-    depth: float = 40
+    width: tuple[int, int] = (2, 2)
+    height: int = 40
+    depth: int = 40
     caption: str = " "
 
     def build(self) -> list[str]:
         return [
-            L.to_ConvConvRelu(
+            to_conv_conv_relu(
                 name=self.name,
                 s_filer=self.s_filer,
                 n_filer=self.n_filer,
                 offset=self.offset,
                 to=self.to,
-                width=(int(self.width[0]), int(self.width[1])),
-                height=int(self.height),
-                depth=int(self.depth),
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
                 caption=self.caption,
             )
         ]
@@ -119,24 +134,26 @@ class ConvConvRelu(Element):
 
 @dataclass
 class Pool(Element):
+    """Pooling layer."""
+
     name: str
     offset: str = "(0,0,0)"
     to: str = "(0,0,0)"
-    width: float = 1
-    height: float = 32
-    depth: float = 32
+    width: int = 1
+    height: int = 32
+    depth: int = 32
     opacity: float = 0.5
     caption: str = " "
 
     def build(self) -> list[str]:
         return [
-            L.to_Pool(
+            to_pool(
                 name=self.name,
                 offset=self.offset,
                 to=self.to,
-                width=int(self.width),
-                height=int(self.height),
-                depth=int(self.depth),
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
                 opacity=self.opacity,
                 caption=self.caption,
             )
@@ -145,24 +162,26 @@ class Pool(Element):
 
 @dataclass
 class UnPool(Element):
+    """Unpooling layer."""
+
     name: str
     offset: str = "(0,0,0)"
     to: str = "(0,0,0)"
-    width: float = 1
-    height: float = 32
-    depth: float = 32
+    width: int = 1
+    height: int = 32
+    depth: int = 32
     opacity: float = 0.5
     caption: str = " "
 
     def build(self) -> list[str]:
         return [
-            L.to_UnPool(
+            to_unpool(
                 name=self.name,
                 offset=self.offset,
                 to=self.to,
-                width=int(self.width),
-                height=int(self.height),
-                depth=int(self.depth),
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
                 opacity=self.opacity,
                 caption=self.caption,
             )
@@ -171,28 +190,30 @@ class UnPool(Element):
 
 @dataclass
 class ConvRes(Element):
+    """Residual Conv."""
+
     name: str
     s_filer: int = 256
     n_filer: int = 64
     offset: str = "(0,0,0)"
     to: str = "(0,0,0)"
-    width: float = 6
-    height: float = 40
-    depth: float = 40
+    width: int = 6
+    height: int = 40
+    depth: int = 40
     opacity: float = 0.2
     caption: str = " "
 
     def build(self) -> list[str]:
         return [
-            L.to_ConvRes(
+            to_conv_res(
                 name=self.name,
                 s_filer=self.s_filer,
                 n_filer=self.n_filer,
                 offset=self.offset,
                 to=self.to,
-                width=int(self.width),
-                height=int(self.height),
-                depth=int(self.depth),
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
                 opacity=self.opacity,
                 caption=self.caption,
             )
@@ -201,25 +222,27 @@ class ConvRes(Element):
 
 @dataclass
 class ConvSoftMax(Element):
+    """Conv + SoftMax."""
+
     name: str
     s_filer: int = 40
     offset: str = "(0,0,0)"
     to: str = "(0,0,0)"
-    width: float = 1
-    height: float = 40
-    depth: float = 40
+    width: int = 1
+    height: int = 40
+    depth: int = 40
     caption: str = " "
 
     def build(self) -> list[str]:
         return [
-            L.to_ConvSoftMax(
+            to_conv_softmax(
                 name=self.name,
                 s_filer=self.s_filer,
                 offset=self.offset,
                 to=self.to,
-                width=int(self.width),
-                height=int(self.height),
-                depth=int(self.depth),
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
                 caption=self.caption,
             )
         ]
@@ -227,26 +250,28 @@ class ConvSoftMax(Element):
 
 @dataclass
 class SoftMax(Element):
+    """SoftMax layer."""
+
     name: str
     s_filer: int = 10
     offset: str = "(0,0,0)"
     to: str = "(0,0,0)"
-    width: float = 1.5
-    height: float = 3
-    depth: float = 25
+    width: int = 2  # Changed to int
+    height: int = 3
+    depth: int = 25
     opacity: float = 0.8
     caption: str = " "
 
     def build(self) -> list[str]:
         return [
-            L.to_SoftMax(
+            to_softmax(
                 name=self.name,
                 s_filer=self.s_filer,
                 offset=self.offset,
                 to=self.to,
                 width=self.width,
-                height=int(self.height),
-                depth=int(self.depth),
+                height=self.height,
+                depth=self.depth,
                 opacity=self.opacity,
                 caption=self.caption,
             )
@@ -255,6 +280,8 @@ class SoftMax(Element):
 
 @dataclass
 class Sum(Element):
+    """Sum operation."""
+
     name: str
     offset: str = "(0,0,0)"
     to: str = "(0,0,0)"
@@ -262,33 +289,103 @@ class Sum(Element):
     opacity: float = 0.6
 
     def build(self) -> list[str]:
-        return [L.to_Sum(self.name, offset=self.offset, to=self.to, radius=self.radius, opacity=self.opacity)]
+        return [
+            to_sum(
+                self.name, offset=self.offset, to=self.to, radius=self.radius, opacity=self.opacity
+            )
+        ]
 
 
 @dataclass
 class Connection(Element):
+    """Connection between layers."""
+
     of: str
     to: str
 
     def build(self) -> list[str]:
-        return [L.to_connection(self.of, self.to)]
+        return [to_connection(self.of, self.to)]
 
 
 @dataclass
 class Skip(Element):
+    """Skip connection."""
+
     of: str
     to: str
     pos: float = 1.25
 
     def build(self) -> list[str]:
-        return [L.to_skip(self.of, self.to, pos=self.pos)]
+        return [to_skip(self.of, self.to, pos=self.pos)]
+
+
+@dataclass
+class Dense(Element):
+    """Dense (Fully Connected) layer."""
+
+    name: str
+    units: int = 128
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 1
+    height: int = 1
+    depth: int = 20
+    caption: str = "Dense"
+
+    def build(self) -> list[str]:
+        # Reuse Box for simplicity; can customize
+        return [
+            to_conv(  # Placeholder using Conv style, adjust as needed
+                name=self.name,
+                s_filer=self.units,
+                n_filer=1,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                caption=self.caption,
+            )
+        ]
+
+
+@dataclass
+class Dropout(Element):
+    """Dropout layer."""
+
+    name: str
+    rate: float = 0.5
+    offset: str = "(0,0,0)"
+    to: str = "(0,0,0)"
+    width: int = 1
+    height: int = 32
+    depth: int = 32
+    opacity: float = 0.3
+    caption: str = f"Dropout {rate}"
+
+    def build(self) -> list[str]:
+        # Use Pool style as placeholder
+        return [
+            to_pool(
+                name=self.name,
+                offset=self.offset,
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                depth=self.depth,
+                opacity=self.opacity,
+                caption=self.caption,
+            )
+        ]
 
 
 class Block(Element):
+    """Composable block of elements."""
+
     def __init__(self, children: Sequence[Element] | None = None):
         self.children: list[Element] = list(children or [])
 
-    def add(self, *els: Element) -> Block:
+    def add(self, *els: Element) -> Self:
         self.children.extend(els)
         return self
 
@@ -300,15 +397,17 @@ class Block(Element):
 
 
 class TwoConvPoolBlock(Block):
+    """Two Conv + Pool block."""
+
     def __init__(
         self,
         name: str,
-        botton: str,
+        bottom: str,
         top: str,
         s_filer: int = 256,
         n_filer: int = 64,
         offset: str = "(1,0,0)",
-        size: tuple[int, int, float] = (32, 32, 3.5),
+        size: tuple[int, int, int] = (32, 32, 4),
         opacity: float = 0.5,
     ):
         ccr = ConvConvRelu(
@@ -316,129 +415,184 @@ class TwoConvPoolBlock(Block):
             s_filer=s_filer,
             n_filer=(n_filer, n_filer),
             offset=offset,
-            to=f"({botton}-east)",
-            width=(int(size[2]), int(size[2])),
+            to=f"({bottom}-east)",
+            width=(size[2] // 2, size[2] // 2),
             height=size[0],
             depth=size[1],
         )
         pool = Pool(
-            name=f"{top}",
+            name=top,
             offset="(0,0,0)",
             to=f"(ccr_{name}-east)",
             width=1,
-            height=size[0] - int(size[0] / 4),
-            depth=size[1] - int(size[0] / 4),
+            height=size[0] - (size[0] // 4),
+            depth=size[1] - (size[0] // 4),
             opacity=opacity,
         )
-        conn = Connection(of=f"{botton}", to=f"ccr_{name}")
+        conn = Connection(of=bottom, to=f"ccr_{name}")
         super().__init__([ccr, pool, conn])
 
 
 class UnconvBlock(Block):
+    """Unconv block with residuals."""
+
     def __init__(
         self,
         name: str,
-        botton: str,
+        bottom: str,
         top: str,
         s_filer: int = 256,
         n_filer: int = 64,
         offset: str = "(1,0,0)",
-        size: tuple[int, int, float] = (32, 32, 3.5),
+        size: tuple[int, int, int] = (32, 32, 4),
         opacity: float = 0.5,
     ):
         seq: list[Element] = [
-            UnPool(name=f"unpool_{name}", offset=offset, to=f"({botton}-east)", width=1, height=size[0], depth=size[1], opacity=opacity),
-            ConvRes(name=f"ccr_res_{name}", offset="(0,0,0)", to=f"(unpool_{name}-east)", s_filer=s_filer, n_filer=n_filer, width=int(size[2]), height=size[0], depth=size[1], opacity=opacity),
-            Conv(name=f"ccr_{name}", offset="(0,0,0)", to=f"(ccr_res_{name}-east)", s_filer=s_filer, n_filer=n_filer, width=int(size[2]), height=size[0], depth=size[1]),
-            ConvRes(name=f"ccr_res_c_{name}", offset="(0,0,0)", to=f"(ccr_{name}-east)", s_filer=s_filer, n_filer=n_filer, width=int(size[2]), height=size[0], depth=size[1], opacity=opacity),
-            Conv(name=f"{top}", offset="(0,0,0)", to=f"(ccr_res_c_{name}-east)", s_filer=s_filer, n_filer=n_filer, width=int(size[2]), height=size[0], depth=size[1]),
-            Connection(of=f"{botton}", to=f"unpool_{name}"),
+            UnPool(
+                name=f"unpool_{name}",
+                offset=offset,
+                to=f"({bottom}-east)",
+                width=1,
+                height=size[0],
+                depth=size[1],
+                opacity=opacity,
+            ),
+            ConvRes(
+                name=f"ccr_res_{name}",
+                offset="(0,0,0)",
+                to=f"(unpool_{name}-east)",
+                s_filer=s_filer,
+                n_filer=n_filer,
+                width=size[2],
+                height=size[0],
+                depth=size[1],
+                opacity=opacity,
+            ),
+            Conv(
+                name=f"ccr_{name}",
+                offset="(0,0,0)",
+                to=f"(ccr_res_{name}-east)",
+                s_filer=s_filer,
+                n_filer=n_filer,
+                width=size[2],
+                height=size[0],
+                depth=size[1],
+            ),
+            ConvRes(
+                name=f"ccr_res_c_{name}",
+                offset="(0,0,0)",
+                to=f"(ccr_{name}-east)",
+                s_filer=s_filer,
+                n_filer=n_filer,
+                width=size[2],
+                height=size[0],
+                depth=size[1],
+                opacity=opacity,
+            ),
+            Conv(
+                name=top,
+                offset="(0,0,0)",
+                to=f"(ccr_res_c_{name}-east)",
+                s_filer=s_filer,
+                n_filer=n_filer,
+                width=size[2],
+                height=size[0],
+                depth=size[1],
+            ),
+            Connection(of=bottom, to=f"unpool_{name}"),
         ]
         super().__init__(seq)
 
 
-class ResBlock(Block):
-    def __init__(
-        self,
-        num: int,
-        name: str,
-        botton: str,
-        top: str,
-        s_filer: int = 256,
-        n_filer: int = 64,
-        offset: str = "(0,0,0)",
-        size: tuple[int, int, float] = (32, 32, 3.5),
-        opacity: float = 0.5,
-    ):
-        layers_names = [*(f"{name}_{i}" for i in range(num - 1)), top]
-        seq: list[Element] = []
-        current = botton
-        for nm in layers_names:
-            seq.append(
-                Conv(
-                    name=f"{nm}",
-                    offset=offset,
-                    to=f"({current}-east)",
-                    s_filer=s_filer,
-                    n_filer=n_filer,
-                    width=int(size[2]),
-                    height=size[0],
-                    depth=size[1],
-                )
-            )
-            seq.append(Connection(of=f"{current}", to=f"{nm}"))
-            current = nm
-        # skip connection entre 2º e penúltimo
-        if len(layers_names) >= 3:
-            seq.append(Skip(of=layers_names[1], to=layers_names[-2], pos=1.25))
-        super().__init__(seq)
+# Legacy Wrappers (Deprecated)
+# import warnings
 
 
+# def block_2conv_pool(*args, **kwargs):
+#     warnings.warn("block_2conv_pool is deprecated; use TwoConvPoolBlock", DeprecationWarning)
+#     return TwoConvPoolBlock(*args, **kwargs).build()
+
+
+# def block_unconv(*args, **kwargs):
+#     warnings.warn("block_unconv is deprecated; use UnconvBlock", DeprecationWarning)
+#     return UnconvBlock(*args, **kwargs).build()
+
+
+# Diagram Builder
 class Diagram:
-    """Construtor de diagramas de maneira tipada e extensível."""
+    """Main class for building and rendering diagrams."""
 
     def __init__(self) -> None:
         self.elements: list[Element] = []
 
-    def add(self, *els: Element) -> Diagram:
+    def add(self, *els: Element) -> Self:
         self.elements.extend(els)
         return self
 
-    def extend(self, els: Iterable[Element]) -> Diagram:
-        self.elements.extend(list(els))
+    def extend(self, els: Iterable[Element]) -> Self:
+        self.elements.extend(els)
         return self
 
     def build(self) -> list[str]:
+        """Generate LaTeX snippets."""
         out: list[str] = []
         for el in self.elements:
             out.extend(el.build())
         return out
 
-    # Atalhos para renderização
     def to_tex(self, inline_styles: bool = True, include_colors: bool = True) -> str:
-        return L.to_document(self.build(), inline_styles=inline_styles, include_colors=include_colors)
+        """Generate full LaTeX document."""
+        from .layers import to_document
 
-    def save_tex(self, path: str, inline_styles: bool = True, include_colors: bool = True) -> str:
-        L.to_generate(self.build(), pathname=path, inline_styles=inline_styles, include_colors=include_colors)
-        return path
+        return to_document(self.build(), inline_styles=inline_styles, include_colors=include_colors)
 
-    def render_pdf(self, out_pdf: str, inline_styles: bool = True, include_colors: bool = True) -> Path:
-        return L.generate_pdf(self.build(), out_pdf, inline_styles=inline_styles, include_colors=include_colors)
+    def save_tex(
+        self, path: str | Path, inline_styles: bool = True, include_colors: bool = True
+    ) -> Path:
+        """Save LaTeX to file."""
+        from .layers import to_generate
 
-    def render_png(self, out_png: str, dpi: int = 300, inline_styles: bool = True, include_colors: bool = True) -> Path:
-        return L.generate_png(self.build(), out_png, dpi=dpi, inline_styles=inline_styles, include_colors=include_colors)
+        if isinstance(path, Path):
+            path = path.as_posix()
+        to_generate(
+            self.build(), pathname=path, inline_styles=inline_styles, include_colors=include_colors
+        )
+        return Path(path)
 
+    def render_pdf(
+        self, out_pdf: str | Path, inline_styles: bool = True, include_colors: bool = True
+    ) -> Path:
+        """Render to PDF."""
+        from .layers import generate_pdf
 
-# ======================
-# Wrappers legados
-# ======================
-def block_2ConvPool(name, botton, top, s_filer=256, n_filer=64, offset="(1,0,0)", size=(32, 32, 3.5), opacity=0.5):
-    return TwoConvPoolBlock(name=name, botton=botton, top=top, s_filer=s_filer, n_filer=n_filer, offset=offset, size=size, opacity=opacity).build()
+        return generate_pdf(
+            self.build(), out_pdf, inline_styles=inline_styles, include_colors=include_colors
+        )
 
+    def render_png(
+        self,
+        out_png: str | Path,
+        dpi: int = 300,
+        inline_styles: bool = True,
+        include_colors: bool = True,
+    ) -> Path:
+        """Render to PNG."""
+        from .layers import generate_png
 
-def block_Unconv(name, botton, top, s_filer=256, n_filer=64, offset="(1,0,0)", size=(32, 32, 3.5), opacity=0.5):
-    return UnconvBlock(name=name, botton=botton, top=top, s_filer=s_filer, n_filer=n_filer, offset=offset, size=size, opacity=opacity).build()
+        return generate_png(
+            self.build(),
+            out_png,
+            dpi=dpi,
+            inline_styles=inline_styles,
+            include_colors=include_colors,
+        )
 
+    def render_svg(
+        self, out_svg: str | Path, inline_styles: bool = True, include_colors: bool = True
+    ) -> Path:
+        """Render to SVG (requires pdftocairo)."""
+        from .layers import generate_svg
 
-def block_Res(num, name, botton, top, s_filer=256, n_filer=64, offset="(0,0,0)", size=(32, 32, 3.5), opacity=0.5):
-    return ResBlock(num=num, name=name, botton=botton, top=top, s_filer=s_filer, n_filer=n_filer, offset=offset, size=size, opacity=opacity).build()
+        return generate_svg(
+            self.build(), out_svg, inline_styles=inline_styles, include_colors=include_colors
+        )

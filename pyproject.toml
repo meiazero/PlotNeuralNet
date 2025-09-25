@@ -1,22 +1,17 @@
 [project]
 name = "plotnn"
-version = "0.1.0"
+version = "0.1.1"                                                         # Bumped for refactor
 description = "Gerador de diagramas de redes neurais em LaTeX/TikZ"
-authors = [
-        { name = "Emanuel Avila", email = "avilaemanueel@gmail.com" },
-]
+authors = [{ name = "Emanuel Avila", email = "avilaemanueel@gmail.com" }]
+
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = []
 
 [tool.poetry]
-packages = [
-    { include = "plotnn", from = "src" }
-]
-include = [
-    "src/plotnn/latex/layers/*.sty",
-    "src/plotnn/latex/layers/init.tex",
-]
+packages = [{ include = "plotnn", from = "src" }]
+
+include = ["src/plotnn/layers/*.sty", "src/plotnn/layers/init.tex"]
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.1"

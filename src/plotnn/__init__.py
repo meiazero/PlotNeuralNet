@@ -1,16 +1,12 @@
-"""plotnn: utilitários para gerar código LaTeX/TikZ de arquiteturas de redes neurais.
+"""plotnn: Python API for LaTeX/TikZ neural network diagrams.
 
-API pública principal:
-- from plotnn.layers import *
-- from plotnn.blocks import *
+Public API:
+- Diagram: Main builder class.
+- Element subclasses: Input, Conv, Pool, etc.
+- Blocks: TwoConvPoolBlock, UnconvBlock, etc.
 """
 
-# Reexporta símbolos principais para ergonomia
-try:
-    from .blocks import *  # type: ignore # noqa: F401,F403
-    from .layers import *  # type: ignore # noqa: F401,F403
-except Exception:
-    # Em ambientes de análise estática ou durante instalação, os módulos podem não estar resolvidos ainda.
-    pass
+from .blocks import *  # noqa: F403
+from .layers import generate_pdf, generate_png, generate_svg  # noqa: F401
 
-# Não definimos __all__ explicitamente para manter compatibilidade com import *
+__version__ = "0.1.1"

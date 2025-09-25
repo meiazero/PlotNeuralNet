@@ -1,374 +1,324 @@
 from __future__ import annotations
 
-import os
+import logging
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 
 def _layers_dir_path() -> str:
-    """Resolve o caminho local (no filesystem) para os recursos LaTeX do pacote.
-
-    Retorna um caminho POSIX (slashes) que aponta para o diretório 'latex/layers' do pacote.
-    """
-    path = Path(__file__).parent.parent / "layers"
+    path = Path(__file__).parent / "layers"
     return str(path.resolve()).replace("\\", "/")
 
 
-def to_head(projectpath: str) -> str:
-    """Mantém compatibilidade: Recebe um diretório que contém 'layers/'."""
-    pathlayers = os.path.join(projectpath, "layers/").replace("\\", "/")
-    return r"""
-\documentclass[border=8pt, multi, tikz]{standalone}
-\usepackage{import}
-\subimport{"""+ pathlayers + r"""}{init}
-\usetikzlibrary{positioning}
-\usetikzlibrary{3d} %for including external image
-"""
-
-
 def to_head_pkg() -> str:
-    """Cabeçalho usando os recursos LaTeX embarcados no pacote.
-
-    Não requer parâmetro; resolve o diretório correto automaticamente.
-    """
     pathlayers = _layers_dir_path()
-    # Garante barra final
     if not pathlayers.endswith("/"):
         pathlayers += "/"
-    return r"""
-\documentclass[border=8pt, multi, tikz]{standalone}
-\usepackage{import}
-\subimport{"""+ pathlayers + r"""}{init}
-\usetikzlibrary{positioning}
-\usetikzlibrary{3d} %for including external image
+    return f"""
+\\documentclass[border=8pt, multi, tikz]{{standalone}}
+\\usepackage{{import}}
+\\subimport{{{pathlayers}}}{{init}}
+\\usetikzlibrary{{positioning}}
+\\usetikzlibrary{{3d}}
 """
 
 
 def _read_pkg_text(*rel_parts: str) -> str:
-    """Lê texto de um recurso dentro de plotnn/latex/layers (via filesystem)."""
     p = Path(__file__).parent.joinpath(*rel_parts)
     return p.read_text(encoding="utf-8")
 
 
 def _inline_layers_tex() -> str:
-    r"""Concatena conteúdo de init.tex e .sty necessários diretamente no preâmbulo.
-
-    Remove linhas \ProvidesPackage para evitar ruído.
-    """
     parts: list[str] = []
-    try:
-        init = _read_pkg_text("latex", "layers", "init.tex")
-        parts.append(init)
-    except Exception:
-        pass
+    init = _read_pkg_text("layers", "init.tex")
+    parts.append(init)
     for sty in ("Ball.sty", "Box.sty", "RightBandedBox.sty"):
-        try:
-            txt = _read_pkg_text("latex", "layers", sty)
-            lines = [ln for ln in txt.splitlines() if not ln.lstrip().startswith("\\ProvidesPackage")]
-            parts.append("\n".join(lines))
-        except Exception:
-            continue
+        txt = _read_pkg_text("layers", sty)
+        lines = [ln for ln in txt.splitlines() if not ln.lstrip().startswith("\\ProvidesPackage")]
+        parts.append("\n".join(lines))
     return "\n".join(parts) + "\n"
 
 
 def to_head_inline() -> str:
-    """Cabeçalho completo com definições necessárias sem dependência de .tex externos."""
     return (
-        r"""
-\documentclass[border=8pt, multi, tikz]{standalone}
-\usetikzlibrary{positioning}
-\usetikzlibrary{3d}
+        """
+\\documentclass[border=8pt, multi, tikz]{standalone}
+\\usetikzlibrary{positioning}
+\\usetikzlibrary{3d}
 """
         + _inline_layers_tex()
     )
 
 
-def to_cor():
-    return r"""
-\def\ConvColor{rgb:yellow,5;red,2.5;white,5}
-\def\ConvReluColor{rgb:yellow,5;red,5;white,5}
-\def\PoolColor{rgb:red,1;black,0.3}
-\def\UnpoolColor{rgb:blue,2;green,1;black,0.3}
-\def\FcColor{rgb:blue,5;red,2.5;white,5}
-\def\FcReluColor{rgb:blue,5;red,5;white,4}
-\def\SoftmaxColor{rgb:magenta,5;black,7}
-\def\SumColor{rgb:blue,5;green,15}
+def to_colors():
+    return """
+\\def\\ConvColor{rgb:yellow,5;red,2.5;white,5}
+\\def\\ConvReluColor{rgb:yellow,5;red,5;white,5}
+\\def\\PoolColor{rgb:red,1;black,0.3}
+\\def\\UnpoolColor{rgb:blue,2;green,1;black,0.3}
+\\def\\FcColor{rgb:blue,5;red,2.5;white,5}
+\\def\\FcReluColor{rgb:blue,5;red,5;white,4}
+\\def\\SoftmaxColor{rgb:magenta,5;black,7}
+\\def\\SumColor{rgb:blue,5;green,15}
 """
 
 
 def to_begin():
-    return r"""
-\newcommand{\copymidarrow}{\tikz \draw[-Stealth,line width=0.8mm,draw={rgb:blue,4;red,1;green,1;black,3}] (-0.3,0) -- ++(0.3,0);}
+    return """
+\\newcommand{\\copymidarrow}{\\tikz \\draw[-Stealth,line width=0.8mm,draw={rgb:blue,4;red,1;green,1;black,3}] (-0.3,0) -- ++(0.3,0);}
 
-\begin{document}
-\begin{tikzpicture}
-\tikzstyle{connection}=[ultra thick,every node/.style={sloped,allow upside down},draw=\edgecolor,opacity=0.7]
-\tikzstyle{copyconnection}=[ultra thick,every node/.style={sloped,allow upside down},draw={rgb:blue,4;red,1;green,1;black,3},opacity=0.7]
+\\begin{document}
+\\begin{tikzpicture}
+\\tikzstyle{connection}=[ultra thick,every node/.style={sloped,allow upside down},draw=\\edgecolor,opacity=0.7]
+\\tikzstyle{copyconnection}=[ultra thick,every node/.style={sloped,allow upside down},draw={rgb:blue,4;red,1;green,1;black,3},opacity=0.7]
 """
 
 
-def to_input(pathfile, to='(-3,0,0)', width=8, height=8, name="temp"):
-    parts = [
-        "\\node[canvas is zy plane at x=0] (",
-        name,
-        ") at ",
-        to,
-        " {\\includegraphics[width=",
-        str(width),
-        "cm,height=",
-        str(height),
-        "cm]{",
-        pathfile,
-        "}};\n",
-    ]
-    return "".join(parts)
+def to_input(
+    pathfile: str, to: str = "(-3,0,0)", width: int = 8, height: int = 8, name: str = "temp"
+) -> str:
+    return f"""\\node[canvas is zy plane at x=0] ({name}) at {to} {{\\includegraphics[width={width}cm,height={height}cm]{{{pathfile}}}}};"""
 
 
-def to_Conv(name, s_filer=256, n_filer=64, offset="(0,0,0)", to="(0,0,0)", width=1, height=40, depth=40, caption=" "):
-    parts = [
-        "\\pic[shift={",
-        offset,
-        "}] at ",
-        to,
-        "\n    {Box={\n        name=",
-        name,
-        ",\n        caption=",
-        caption,
-        ",\n        xlabel={{",
-        str(n_filer),
-        ", }},\n        zlabel=",
-        str(s_filer),
-        ",\n        fill=\\ConvColor,\n        height=",
-        str(height),
-        "\n        width=",
-        str(width),
-        "\n        depth=",
-        str(depth),
-        "\n        }\n    };\n",
-    ]
-    return "".join(parts)
+def to_connection(of: str, to: str) -> str:
+    return f"\\draw [connection]  ({of}-east)    -- node {{\\midarrow}} ({to}-west);"
 
 
-def to_ConvConvRelu(name, s_filer=256, n_filer=(64,64), offset="(0,0,0)", to="(0,0,0)", width=(2,2), height=40, depth=40, caption=" "):
-    parts = [
-        "\\pic[shift={ ", offset, " }] at ", to, "\n    {RightBandedBox={\n        name=", name, ",\n        caption=", caption, "\n        xlabel={{ ", str(n_filer[0]), ", ", str(n_filer[1]), " }},\n        zlabel=", str(s_filer), "\n        fill=\\ConvColor,\n        bandfill=\\ConvReluColor,\n        height=", str(height), "\n        width={ ", str(width[0]), " , ", str(width[1]), " },\n        depth=", str(depth), "\n        }\n    };\n",
-    ]
-    return "".join(parts)
+def to_conv(
+    name: str,
+    s_filer: int = 256,
+    n_filer: int = 64,
+    offset: str = "(0,0,0)",
+    to: str = "(0,0,0)",
+    width: int = 1,
+    height: int = 40,
+    depth: int = 40,
+    caption: str = " ",
+) -> str:
+    return f"""\\pic[shift={{{offset}}}] at {to}
+    {{Box={{
+        name={name},
+        caption={caption},
+        xlabel={{{{ {n_filer}, }}}},
+        zlabel={s_filer},
+        fill=\\ConvColor,
+        height={height},
+        width={width},
+        depth={depth}
+        }}
+    }};"""
 
 
-def to_Pool(name, offset="(0,0,0)", to="(0,0,0)", width=1, height=32, depth=32, opacity=0.5, caption=" "):
-    parts = [
-        "\\pic[shift={ ", offset, " }] at ", to, "\n    {Box={\n        name=",
-        name,
-        ",\n        caption=",
-        caption,
-        "\n        fill=\\PoolColor,\n        opacity=",
-        str(opacity),
-        "\n        height=",
-        str(height),
-        "\n        width=",
-        str(width),
-        "\n        depth=",
-        str(depth),
-        "\n        }\n    };\n",
-    ]
-    return "".join(parts)
+def to_conv_conv_relu(
+    name: str,
+    s_filer: int = 256,
+    n_filer: tuple[int, int] = (64, 64),
+    offset: str = "(0,0,0)",
+    to: str = "(0,0,0)",
+    width: tuple[int, int] = (2, 2),
+    height: int = 40,
+    depth: int = 40,
+    caption: str = " ",
+) -> str:
+    return f"""\\pic[shift={{ {offset} }}] at {to}
+    {{RightBandedBox={{
+        name={name},
+        caption={caption},
+        xlabel={{ {{ {n_filer[0]} }}, {{ {n_filer[1]} }} }},
+        zlabel={s_filer},
+        fill=\\ConvColor,
+        bandfill=\\ConvReluColor,
+        height={height},
+        width={{ {width[0]} , {width[1]} }},
+        depth={depth}
+        }}
+    }};"""
 
 
-def to_UnPool(name, offset="(0,0,0)", to="(0,0,0)", width=1, height=32, depth=32, opacity=0.5, caption=" "):
-    parts = [
-        "\\pic[shift={ ", offset, " }] at ", to, "\n    {Box={\n        name=",
-        name,
-        "\n        caption=",
-        caption,
-        "\n        fill=\\UnpoolColor,\n        opacity=",
-        str(opacity),
-        "\n        height=",
-        str(height),
-        "\n        width=",
-        str(width),
-        "\n        depth=",
-        str(depth),
-        "\n        }\n    };\n",
-    ]
-    return "".join(parts)
+def to_pool(
+    name: str,
+    offset: str = "(0,0,0)",
+    to: str = "(0,0,0)",
+    width: int = 1,
+    height: int = 32,
+    depth: int = 32,
+    opacity: float = 0.5,
+    caption: str = " ",
+) -> str:
+    return f"""\\pic[shift={{ {offset} }}] at {to}
+    {{Box={{
+        name={name},
+        caption={caption},
+        fill=\\PoolColor,
+        opacity={opacity},
+        height={height},
+        width={width},
+        depth={depth}
+        }}
+    }};"""
 
 
-def to_ConvRes(name, s_filer=256, n_filer=64, offset="(0,0,0)", to="(0,0,0)", width=6, height=40, depth=40, opacity=0.2, caption=" "):
-    parts = [
-        "\\pic[shift={ ", offset, " }] at ", to, "\n    {RightBandedBox={\n        name=",
-        name,
-        "\n        caption=",
-        caption,
-        "\n        xlabel={{ ",
-        str(n_filer),
-        ", }},\n        zlabel=",
-        str(s_filer),
-        "\n        fill={rgb:white,1;black,3},\n        bandfill={rgb:white,1;black,2},\n        opacity=",
-        str(opacity),
-        "\n        height=",
-        str(height),
-        "\n        width=",
-        str(width),
-        "\n        depth=",
-        str(depth),
-        "\n        }\n    };\n",
-    ]
-    return "".join(parts)
+def to_unpool(
+    name: str,
+    offset: str = "(0,0,0)",
+    to: str = "(0,0,0)",
+    width: int = 1,
+    height: int = 32,
+    depth: int = 32,
+    opacity: float = 0.5,
+    caption: str = " ",
+) -> str:
+    return f"""\\pic[shift={{ {offset} }}] at {to}
+    {{Box={{
+        name={name},
+        caption={caption},
+        fill=\\UnpoolColor,
+        opacity={opacity},
+        height={height},
+        width={width},
+        depth={depth}
+        }}
+    }};"""
 
 
-def to_ConvSoftMax(name, s_filer=40, offset="(0,0,0)", to="(0,0,0)", width=1, height=40, depth=40, caption=" "):
-    parts = [
-        "\\pic[shift={",
-        offset,
-        "}] at ",
-        to,
-        "\n    {Box={\n        name=",
-        name,
-        ",\n        caption=",
-        caption,
-        "\n        zlabel=",
-        str(s_filer),
-        "\n        fill=\\SoftmaxColor,\n        height=",
-        str(height),
-        "\n        width=",
-        str(width),
-        "\n        depth=",
-        str(depth),
-        "\n        }\n    };\n",
-    ]
-    return "".join(parts)
+def to_conv_res(
+    name: str,
+    s_filer: int = 256,
+    n_filer: int = 64,
+    offset: str = "(0,0,0)",
+    to: str = "(0,0,0)",
+    width: int = 6,
+    height: int = 40,
+    depth: int = 40,
+    opacity: float = 0.2,
+    caption: str = " ",
+) -> str:
+    return f"""\\pic[shift={{ {offset} }}] at {to}
+    {{RightBandedBox={{
+        name={name},
+        caption={caption},
+        xlabel={{ {{ {n_filer} }}, }},
+        zlabel={s_filer},
+        fill={{rgb:white,1;black,3}},
+        bandfill={{rgb:white,1;black,2}},
+        opacity={opacity},
+        height={height},
+        width={width},
+        depth={depth}
+        }}
+    }};"""
 
 
-def to_SoftMax(name, s_filer=10, offset="(0,0,0)", to="(0,0,0)", width=1.5, height=3, depth=25, opacity=0.8, caption=" "):
-    parts = [
-        "\\pic[shift={",
-        offset,
-        "}] at ",
-        to,
-        "\n    {Box={\n        name=",
-        name,
-        ",\n        caption=",
-        caption,
-        "\n        xlabel={{ \" \" ,\"dummy\" }},\n        zlabel=",
-        str(s_filer),
-        "\n        fill=\\SoftmaxColor,\n        opacity=",
-        str(opacity),
-        "\n        height=",
-        str(height),
-        "\n        width=",
-        str(width),
-        "\n        depth=",
-        str(depth),
-        "\n        }\n    };\n",
-    ]
-    return "".join(parts)
+def to_conv_softmax(
+    name: str,
+    s_filer: int = 40,
+    offset: str = "(0,0,0)",
+    to: str = "(0,0,0)",
+    width: int = 1,
+    height: int = 40,
+    depth: int = 40,
+    caption: str = " ",
+) -> str:
+    return f"""\\pic[shift={{{offset}}}] at {to}
+    {{Box={{
+        name={name},
+        caption={caption},
+        zlabel={s_filer},
+        fill=\\SoftmaxColor,
+        height={height},
+        width={width},
+        depth={depth}
+        }}
+    }};"""
 
 
-def to_Sum(name, offset="(0,0,0)", to="(0,0,0)", radius=2.5, opacity=0.6):
-    parts = [
-        "\\pic[shift={",
-        offset,
-        "}] at ",
-        to,
-        "\n    {Ball={\n        name=",
-        name,
-        "\n        fill=\\SumColor,\n        opacity=",
-        str(opacity),
-        "\n        radius=",
-        str(radius),
-        "\n        logo=$+$\n        }\n    };\n",
-    ]
-    return "".join(parts)
+def to_softmax(
+    name: str,
+    s_filer: int = 10,
+    offset: str = "(0,0,0)",
+    to: str = "(0,0,0)",
+    width: int = 2,
+    height: int = 3,
+    depth: int = 25,
+    opacity: float = 0.8,
+    caption: str = " ",
+) -> str:
+    return f"""\\pic[shift={{{offset}}}] at {to}
+    {{Box={{
+        name={name},
+        caption={caption},
+        xlabel={{ " " ,"dummy" }},
+        zlabel={s_filer},
+        fill=\\SoftmaxColor,
+        opacity={opacity},
+        height={height},
+        width={width},
+        depth={depth}
+        }}
+    }};"""
 
 
-def to_connection(of, to):
-    parts = [
-        "\\draw [connection]  (",
-        of,
-        "-east)    -- node {\\midarrow} (",
-        to,
-        "-west);\n",
-    ]
-    return "".join(parts)
+def to_sum(
+    name: str,
+    offset: str = "(0,0,0)",
+    to: str = "(0,0,0)",
+    radius: float = 2.5,
+    opacity: float = 0.6,
+) -> str:
+    return f"""\\pic[shift={{{offset}}}] at {to}
+    {{Ball={{
+        name={name},
+        fill=\\SumColor,
+        opacity={opacity},
+        radius={radius},
+        logo=$+$
+        }}
+    }};"""
 
 
-def to_skip(of, to, pos=1.25):
-    parts = [
-        "\\path (",
-        of,
-        "-southeast) -- (",
-        of,
-        "-northeast) coordinate[pos=",
-        str(pos),
-        "] (",
-        of,
-        "-top) ;\n",
-        "\\path (",
-        to,
-        "-south)  -- (",
-        to,
-        "-north)  coordinate[pos=",
-        str(pos),
-        "] (",
-        to,
-        "-top) ;\n",
-        "\\draw [copyconnection]  (",
-        of,
-        "-northeast)\n-- node {\\copymidarrow}(",
-        of,
-        "-top)\n-- node {\\copymidarrow}(",
-        to,
-        "-top)\n-- node {\\copymidarrow} (",
-        to,
-        "-north);\n",
-    ]
-    return "".join(parts)
+def to_skip(of: str, to: str, pos: float = 1.25) -> str:
+    return f"""\\path ({of}-southeast) -- ({of}-northeast) coordinate[pos={pos}] ({of}-top) ;
+\\path ({to}-south)  -- ({to}-north)  coordinate[pos={pos}] ({to}-top) ;
+\\draw [copyconnection]  ({of}-northeast)
+-- node {{\\copymidarrow}}({of}-top)
+-- node {{\\copymidarrow}}({to}-top)
+-- node {{\\copymidarrow}} ({to}-north);"""
 
 
-def to_end():
-    return r"""
-\end{tikzpicture}
-\end{document}
+def to_end() -> str:
+    return """
+\\end{tikzpicture}
+\\end{document}
 """
 
 
-def to_document(arch, inline_styles: bool = True, include_colors: bool = True) -> str:
-    """Monta um documento LaTeX completo a partir dos fragmentos de arquitetura.
-
-    - inline_styles=True insere todo o preâmbulo inline, sem depender de arquivos externos.
-    - include_colors=True inclui as definições de cores padrão.
-    """
+def to_document(arch: list[str], inline_styles: bool = True, include_colors: bool = True) -> str:
     head = to_head_inline() if inline_styles else to_head_pkg()
     parts = [head]
     if include_colors:
-        parts.append(to_cor())
+        parts.append(to_colors())
     parts.append(to_begin())
     parts.extend(arch)
     parts.append(to_end())
     return "".join(parts)
 
 
-def to_generate(arch, pathname: str = "file.tex", inline_styles: bool = True, include_colors: bool = True) -> None:
-    """Gera um arquivo .tex (por padrão, com preâmbulo inline para não depender de .sty externos)."""
+def to_generate(
+    arch: list[str],
+    pathname: str = "file.tex",
+    inline_styles: bool = True,
+    include_colors: bool = True,
+) -> None:
     doc = to_document(arch, inline_styles=inline_styles, include_colors=include_colors)
     with open(pathname, "w", encoding="utf-8") as f:
         f.write(doc)
 
 
-# ===== Renderização: PDF/PNG direto do Python =====
-def _which(cmd: str) -> str | None:
-    return shutil.which(cmd)
-
-
-def compile_tex_to_pdf(tex_content: str, out_pdf: os.PathLike[str] | str) -> Path:
-    """Compila um documento LaTeX (string) para PDF.
-
-    Usa latexmk se disponível; caso contrário, tenta pdflatex (duas passagens).
-    Retorna o caminho do PDF gerado (igual a out_pdf).
-    """
+def compile_tex_to_pdf(tex_content: str, out_pdf: str | Path) -> Path:
     out_pdf_path = Path(out_pdf).resolve()
     out_pdf_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -377,51 +327,51 @@ def compile_tex_to_pdf(tex_content: str, out_pdf: os.PathLike[str] | str) -> Pat
         tex_file = tmp / "diagram.tex"
         tex_file.write_text(tex_content, encoding="utf-8")
 
-        cmd = ["pdflatex", "-interaction=nonstopmode", tex_file.name]
-        subprocess.run(cmd, cwd=tmp, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if shutil.which("latexmk"):
+            cmd = ["latexmk", "-pdf", "-interaction=nonstopmode", tex_file.name]
+        else:
+            cmd = ["pdflatex", "-interaction=nonstopmode", tex_file.name]
+            subprocess.run(cmd, cwd=tmp, check=False)  # Second pass
+            subprocess.run(cmd, cwd=tmp, check=True)
 
         produced = tmp / "diagram.pdf"
         if not produced.exists():
-            pdfs = list(tmp.glob("*.pdf"))
-            if not pdfs:
-                raise RuntimeError("Compilação LaTeX não produziu PDF.")
-            produced = pdfs[0]
+            raise RuntimeError("LaTeX compilation failed to produce PDF. Check logs.")
         shutil.copyfile(produced, out_pdf_path)
+    logger.info(f"PDF generated at {out_pdf_path}")
     return out_pdf_path
 
 
-def pdf_to_png(pdf_path: os.PathLike[str] | str, out_png: os.PathLike[str] | str, dpi: int = 300, page: int = 1) -> Path:
-    """Converte um PDF para PNG. Tenta pdftocairo, depois ImageMagick, depois Ghostscript.
+def pdf_to_format(
+    pdf_path: Path, out_path: Path, format: str, dpi: int = 300, page: int = 1
+) -> Path:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    if format not in ("png", "svg"):
+        raise ValueError("Format must be 'png' or 'svg'")
 
-    page é 1-based.
-    """
-    pdf = Path(pdf_path).resolve()
-    png = Path(out_png).resolve()
-    png.parent.mkdir(parents=True, exist_ok=True)
+    tool = shutil.which("pdftocairo")
+    if tool:
+        args = ["-r", str(dpi), f"-f{page}", f"-l{page}", str(pdf_path), "-singlefile"]
+        if format == "png":
+            cmd = [tool, "-png"] + args + [str(out_path.with_suffix("").as_posix())]
+        else:
+            cmd = [tool, "-svg"] + args + [str(out_path)]
+        subprocess.run(cmd, check=True)
+        return out_path
 
-    if _which("pdftocairo"):
-        cmd = [
-            "pdftocairo",
-            "-png",
-            f"-r{dpi}",
-            "-singlefile",
-            f"-f{page}",
-            f"-l{page}",
-            str(pdf),
-            str(png.with_suffix("").as_posix()),
-        ]
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        return png
+    if format == "svg":
+        raise RuntimeError("SVG requires pdftocairo.")
 
-    im = _which("magick") or _which("convert")
+    im = shutil.which("magick") or shutil.which("convert")
     if im:
-        cmd = [im, "-density", str(dpi), f"{pdf}[{page-1}]", "-quality", "100", str(png)]
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        return png
+        cmd = [im, "-density", str(dpi), f"{pdf_path}[{page-1}]", "-quality", "100", str(out_path)]
+        subprocess.run(cmd, check=True)
+        return out_path
 
-    if _which("gs"):
+    gs = shutil.which("gs")
+    if gs:
         cmd = [
-            "gs",
+            gs,
             "-dSAFER",
             "-dBATCH",
             "-dNOPAUSE",
@@ -429,24 +379,39 @@ def pdf_to_png(pdf_path: os.PathLike[str] | str, out_png: os.PathLike[str] | str
             f"-r{dpi}",
             f"-dFirstPage={page}",
             f"-dLastPage={page}",
-            f"-sOutputFile={png}",
-            str(pdf),
+            f"-sOutputFile={out_path}",
+            str(pdf_path),
         ]
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        return png
+        subprocess.run(cmd, check=True)
+        return out_path
 
-    raise RuntimeError("Nenhum conversor PDF->PNG encontrado (pdftocairo/ImageMagick/gs).")
+    raise RuntimeError(f"No tool found for {format} conversion (pdftocairo/ImageMagick/gs).")
 
 
-def generate_pdf(arch, out_pdf: os.PathLike[str] | str, inline_styles: bool = True, include_colors: bool = True) -> Path:
-    """Gera PDF diretamente a partir de uma arquitetura (fragmentos)."""
+def generate_pdf(
+    arch: list[str], out_pdf: str | Path, inline_styles: bool = True, include_colors: bool = True
+) -> Path:
     doc = to_document(arch, inline_styles=inline_styles, include_colors=include_colors)
     return compile_tex_to_pdf(doc, out_pdf)
 
 
-def generate_png(arch, out_png: os.PathLike[str] | str, dpi: int = 300, inline_styles: bool = True, include_colors: bool = True) -> Path:
-    """Gera PNG diretamente a partir de uma arquitetura (fragmentos)."""
+def generate_png(
+    arch: list[str],
+    out_png: str | Path,
+    dpi: int = 300,
+    inline_styles: bool = True,
+    include_colors: bool = True,
+) -> Path:
     with tempfile.TemporaryDirectory() as tmpdir:
-        pdf_path = Path(tmpdir) / "out.pdf"
+        pdf_path = Path(tmpdir) / "temp.pdf"
         generate_pdf(arch, pdf_path, inline_styles=inline_styles, include_colors=include_colors)
-        return pdf_to_png(pdf_path, out_png, dpi=dpi)
+        return pdf_to_format(pdf_path, Path(out_png), "png", dpi=dpi)
+
+
+def generate_svg(
+    arch: list[str], out_svg: str | Path, inline_styles: bool = True, include_colors: bool = True
+) -> Path:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        pdf_path = Path(tmpdir) / "temp.pdf"
+        generate_pdf(arch, pdf_path, inline_styles=inline_styles, include_colors=include_colors)
+        return pdf_to_format(pdf_path, Path(out_svg), "svg")

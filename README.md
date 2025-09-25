@@ -1,4 +1,12 @@
-# Plot-Neural Network
+# plotnn: Python API for Generating Neural Network Diagrams in LaTeX/TikZ
+
+`plotnn` allows you to build neural network architectures programmatically in Python and generate LaTeX/TikZ code, PDF, or PNG outputs. It's lightweight, with no core dependencies, and focuses on ease of use.
+
+## Installation
+
+```bash
+pip install plotnn
+```
 
 ## Recommended Tools
 
@@ -7,21 +15,50 @@
 
 ## Getting Started
 
-**TODO**
+### Usage
 
-## Examples
+Build diagrams fluently:
 
-Following are some network representations:
+```python
+from plotnn import Diagram, Input, Conv, Connection, Skip, Pool
 
-<p align="center"><img  src="https://user-images.githubusercontent.com/17570785/50308846-c2231880-049c-11e9-8763-3daa1024de78.png" width="85%" height="85%"></p>
-<h6 align="center">FCN-8 (<a href="https://www.overleaf.com/read/kkqntfxnvbsk">view on Overleaf</a>)</h6>
+d = (
+    Diagram()
+    .add(Input(pathfile="path/to/image.jpg", name="input", width=8, height=8))
+    .add(Conv(name="conv1", n_filer=64, width=2, height=32, depth=32))
+    .add(Connection(of="input", to="conv1"))
+    .add(Pool(name="pool1", width=1, height=16, depth=16))
+    .add(Connection(of="conv1", to="pool1"))
+    .add(Skip(of="conv1", to="pool1", pos=1.25))
+)
 
-<p align="center"><img  src="https://user-images.githubusercontent.com/17570785/50308873-e2eb6e00-049c-11e9-9587-9da6bdec011b.png" width="85%" height="85%"></p>
-<h6 align="center">FCN-32 (<a href="https://www.overleaf.com/read/wsxpmkqvjnbs">view on Overleaf</a>)</h6>
+# Generate outputs
+d.save_tex("diagram.tex")  # LaTeX file
+d.render_pdf("diagram.pdf")  # Requires pdflatex/latexmk
+d.render_png("diagram.png", dpi=300)  # Requires pdftocairo/ImageMagick/gs
+d.render_svg("diagram.svg")  # Optional, if pdftocairo available
+```
 
-<p align="center"><img  src="https://user-images.githubusercontent.com/17570785/50308911-03b3c380-049d-11e9-92d9-ce15669017ad.png" width="85%" height="85%"></p>
-<h6 align="center">Holistically-Nested Edge Detection (<a href="https://www.overleaf.com/read/jxhnkcnwhfxp">view on Overleaf</a>)</h6>
+For complex architectures like U-Net, use pre-built blocks:
 
-# Acknowledgements
+```python
+from plotnn import TwoConvPoolBlock, UnconvBlock
 
-**plotnn** [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2526396.svg)](https://doi.org/10.5281/zenodo.2526396)
+# ... add to Diagram as above
+```
+
+## Requirements for Rendering
+
+- PDF: `pdflatex` or `latexmk`
+- PNG/SVG: `pdftocairo` (preferred), or ImageMagick (`convert`), or Ghostscript (`gs`)
+
+## Development
+
+- Lint: make lint
+- Format: make format
+- Test: make test
+- Build: make build
+
+## Acknowledgements
+
+**PlotNeuralNet** [artifact](https://doi.org/10.5281/zenodo.2526396)
