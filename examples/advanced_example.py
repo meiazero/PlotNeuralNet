@@ -8,7 +8,6 @@ from plotnn import (
     Connection,
     Conv,
     Diagram,
-    DiagramRenderer,
     Pool,
     Skip,
 )
@@ -74,49 +73,16 @@ def create_complex_network() -> Diagram:
 
 
 def main() -> None:
-    """Demonstrate the improved out-of-the-box functionality."""
-    print("🚀 Creating complex neural network diagram...")
-
-    # Create diagram
     d = create_complex_network()
 
-    # Setup output directory
     out_dir = Path(__file__).resolve().parents[1] / "build"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate outputs using the simple API (out-of-the-box functionality)
-    print("📝 Generating LaTeX...")
     tex_path = out_dir / "complex_diagram.tex"
     d.save_tex(tex_path, inline_styles=True)
-    print(f"   ✓ LaTeX saved to {tex_path}")
 
-    print("📄 Generating PDF...")
     pdf_path = out_dir / "complex_diagram.pdf"
     d.render_pdf(pdf_path, inline_styles=True)
-    print(f"   ✓ PDF saved to {pdf_path}")
-
-    print("🖼️  Generating PNG...")
-    png_path = out_dir / "complex_diagram.png"
-    d.render_png(png_path, dpi=200, inline_styles=True)
-    print(f"   ✓ PNG saved to {png_path}")
-
-    # Demonstrate advanced usage with DiagramRenderer
-    print("🔧 Using advanced DiagramRenderer...")
-    renderer = DiagramRenderer()
-
-    svg_path = out_dir / "complex_diagram.svg"
-    renderer.render_to_svg(d.elements, svg_path, inline_styles=True)
-    print(f"   ✓ SVG saved to {svg_path}")
-
-    # Show file sizes
-    print("\n📊 Generated files:")
-    for file_path in [tex_path, pdf_path, png_path, svg_path]:
-        if file_path.exists():
-            size = file_path.stat().st_size
-            print(f"   {file_path.name}: {size:,} bytes")
-
-    print(f"\n✨ All files generated successfully in {out_dir}")
-    print("🎉 PlotNN now works completely out-of-the-box!")
 
 
 if __name__ == "__main__":
