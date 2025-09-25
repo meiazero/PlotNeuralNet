@@ -12,7 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class LaTeXCompiler:
-    """Handles LaTeX compilation to PDF."""
+    """Handles LaTeX compilation to PDF.
+
+    Now optionally persists the .tex file next ao PDF para facilitar depuração e reutilização.
+    """
 
     def __init__(self):
         self.available_tools = self._check_available_tools()
@@ -20,25 +23,52 @@ class LaTeXCompiler:
     def _check_available_tools(self) -> dict[str, bool]:
         """Check which LaTeX tools are available."""
         return {
-            'latexmk': shutil.which("latexmk") is not None,
-            'pdflatex': shutil.which("pdflatex") is not None,
+            "latexmk": shutil.which("latexmk") is not None,
+            "pdflatex": shutil.which("pdflatex") is not None,
         }
 
-    def compile_to_pdf(self, tex_content: str, out_pdf: str | Path) -> Path:
-        """Compile LaTeX content to PDF."""
+    def compile_to_pdf(
+        self,
+        tex_content: str,
+        out_pdf: str | Path,
+        keep_tex: bool | str | Path = True,
+    ) -> Path:
+        """Compile LaTeX content to PDF.
+
+        Parameters
+        ----------
+        tex_content: str
+            Conteúdo LaTeX completo.
+        out_pdf: Path-like
+            Caminho final do PDF a ser gerado.
+        keep_tex: bool | str | Path (default=True)
+            Se True, salva um arquivo .tex com o mesmo *stem* do PDF.
+            Se False, não salva o .tex (comportamento antigo sem persistência).
+            Se str/Path, salva o .tex exatamente nesse caminho.
+        """
         out_pdf_path = Path(out_pdf).resolve()
         out_pdf_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Determine caminho para salvar .tex (se solicitado)
+        tex_out_path: Path | None
+        if keep_tex is False:
+            tex_out_path = None
+        elif keep_tex is True:
+            tex_out_path = out_pdf_path.with_suffix(".tex")
+        else:  # explicit path
+            tex_out_path = Path(keep_tex).resolve()
+            tex_out_path.parent.mkdir(parents=True, exist_ok=True)
+
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
-            tex_file = tmp / "diagram.tex"
-            tex_file.write_text(tex_content, encoding="utf-8")
+            tmp_tex_file = tmp / "diagram.tex"
+            tmp_tex_file.write_text(tex_content, encoding="utf-8")
 
-            if self.available_tools['latexmk']:
-                cmd = ["latexmk", "-pdf", "-interaction=nonstopmode", "-silent", tex_file.name]
+            if self.available_tools["latexmk"]:
+                cmd = ["latexmk", "-pdf", "-interaction=nonstopmode", "-silent", tmp_tex_file.name]
                 subprocess.run(cmd, cwd=tmp, check=True)
-            elif self.available_tools['pdflatex']:
-                cmd = ["pdflatex", "-interaction=nonstopmode", "no-shell-escape", tex_file.name]
+            elif self.available_tools["pdflatex"]:
+                cmd = ["pdflatex", "-interaction=nonstopmode", "no-shell-escape", tmp_tex_file.name]
                 # Run twice for references
                 subprocess.run(cmd, cwd=tmp, check=False)
                 subprocess.run(cmd, cwd=tmp, check=True)
@@ -50,6 +80,10 @@ class LaTeXCompiler:
                 raise RuntimeError("LaTeX compilation failed to produce PDF. Check logs.")
 
             shutil.copyfile(produced, out_pdf_path)
+
+            if tex_out_path is not None:
+                tex_out_path.write_text(tex_content, encoding="utf-8")
+                logger.info(f"Saved LaTeX source at {tex_out_path}")
 
         logger.info(f"PDF generated at {out_pdf_path}")
         return out_pdf_path
@@ -64,19 +98,14 @@ class FormatConverter:
     def _check_available_tools(self) -> dict[str, bool]:
         """Check which conversion tools are available."""
         return {
-            'pdftocairo': shutil.which("pdftocairo") is not None,
-            'magick': shutil.which("magick") is not None,
-            'convert': shutil.which("convert") is not None,
-            'gs': shutil.which("gs") is not None,
+            "pdftocairo": shutil.which("pdftocairo") is not None,
+            "magick": shutil.which("magick") is not None,
+            "convert": shutil.which("convert") is not None,
+            "gs": shutil.which("gs") is not None,
         }
 
     def pdf_to_format(
-        self,
-        pdf_path: Path,
-        out_path: Path,
-        format: str,
-        dpi: int = 300,
-        page: int = 1
+        self, pdf_path: Path, out_path: Path, format: str, dpi: int = 300, page: int = 1
     ) -> Path:
         """Convert PDF to specified format."""
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -85,7 +114,7 @@ class FormatConverter:
             raise ValueError("Format must be 'png' or 'svg'")
 
         # Try pdftocairo first (best quality)
-        if self.available_tools['pdftocairo']:
+        if self.available_tools["pdftocairo"]:
             return self._convert_with_pdftocairo(pdf_path, out_path, format, dpi, page)
 
         # For SVG, pdftocairo is required
@@ -93,11 +122,11 @@ class FormatConverter:
             raise RuntimeError("SVG conversion requires pdftocairo. Please install poppler-utils.")
 
         # Try ImageMagick
-        if self.available_tools['magick'] or self.available_tools['convert']:
+        if self.available_tools["magick"] or self.available_tools["convert"]:
             return self._convert_with_imagemagick(pdf_path, out_path, dpi, page)
 
         # Try Ghostscript
-        if self.available_tools['gs']:
+        if self.available_tools["gs"]:
             return self._convert_with_ghostscript(pdf_path, out_path, dpi, page)
 
         raise RuntimeError(
@@ -129,8 +158,13 @@ class FormatConverter:
         """Convert using ImageMagick."""
         tool = shutil.which("magick") or shutil.which("convert")
         cmd = [
-            tool, "-density", str(dpi), f"{pdf_path}[{page-1}]",
-            "-quality", "100", str(out_path)
+            tool,
+            "-density",
+            str(dpi),
+            f"{pdf_path}[{page-1}]",
+            "-quality",
+            "100",
+            str(out_path),
         ]
         subprocess.run(cmd, check=True)
         return out_path
@@ -141,9 +175,16 @@ class FormatConverter:
         """Convert using Ghostscript."""
         tool = shutil.which("gs")
         cmd = [
-            tool, "-dSAFER", "-dBATCH", "-dNOPAUSE", "-sDEVICE=pngalpha",
-            f"-r{dpi}", f"-dFirstPage={page}", f"-dLastPage={page}",
-            f"-sOutputFile={out_path}", str(pdf_path),
+            tool,
+            "-dSAFER",
+            "-dBATCH",
+            "-dNOPAUSE",
+            "-sDEVICE=pngalpha",
+            f"-r{dpi}",
+            f"-dFirstPage={page}",
+            f"-dLastPage={page}",
+            f"-sOutputFile={out_path}",
+            str(pdf_path),
         ]
         subprocess.run(cmd, check=True)
         return out_path

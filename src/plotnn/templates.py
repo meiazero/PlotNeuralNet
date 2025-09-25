@@ -101,10 +101,7 @@ class LaTeXTemplate:
 
     @classmethod
     def full_document(
-        cls,
-        content: list[str],
-        inline_styles: bool = True,
-        include_colors: bool = True
+        cls, content: list[str], inline_styles: bool = True, include_colors: bool = True
     ) -> str:
         """Generate complete LaTeX document."""
         parts = []

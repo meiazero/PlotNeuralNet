@@ -20,6 +20,7 @@ from .layers import (
     to_sum,
     to_unpool,
 )
+from .renderer import DiagramRenderer
 
 logger = logging.getLogger(__name__)
 
@@ -256,7 +257,7 @@ class SoftMax(Element):
     s_filer: int = 10
     offset: str = "(0,0,0)"
     to: str = "(0,0,0)"
-    width: int = 2  # Changed to int
+    width: int = 2
     height: int = 3
     depth: int = 25
     opacity: float = 0.8
@@ -333,9 +334,8 @@ class Dense(Element):
     caption: str = "Dense"
 
     def build(self) -> list[str]:
-        # Reuse Box for simplicity; can customize
         return [
-            to_conv(  # Placeholder using Conv style, adjust as needed
+            to_conv(
                 name=self.name,
                 s_filer=self.units,
                 n_filer=1,
@@ -364,7 +364,6 @@ class Dropout(Element):
     caption: str = f"Dropout {rate}"
 
     def build(self) -> list[str]:
-        # Use Pool style as placeholder
         return [
             to_pool(
                 name=self.name,
@@ -504,20 +503,6 @@ class UnconvBlock(Block):
         super().__init__(seq)
 
 
-# Legacy Wrappers (Deprecated)
-# import warnings
-
-
-# def block_2conv_pool(*args, **kwargs):
-#     warnings.warn("block_2conv_pool is deprecated; use TwoConvPoolBlock", DeprecationWarning)
-#     return TwoConvPoolBlock(*args, **kwargs).build()
-
-
-# def block_unconv(*args, **kwargs):
-#     warnings.warn("block_unconv is deprecated; use UnconvBlock", DeprecationWarning)
-#     return UnconvBlock(*args, **kwargs).build()
-
-
 # Diagram Builder
 class Diagram:
     """Main class for building and rendering diagrams."""
@@ -544,30 +529,41 @@ class Diagram:
         """Generate full LaTeX document."""
         from .templates import LaTeXTemplate
 
-        # Build the LaTeX content from elements
         latex_parts = []
         for element in self.elements:
             latex_parts.extend(element.build())
 
-        return LaTeXTemplate.full_document(latex_parts, inline_styles=inline_styles, include_colors=include_colors)
+        return LaTeXTemplate.full_document(
+            latex_parts, inline_styles=inline_styles, include_colors=include_colors
+        )
 
     def save_tex(
         self, path: str | Path, inline_styles: bool = True, include_colors: bool = True
     ) -> Path:
         """Save LaTeX to file."""
-        from .renderer import DiagramRenderer
 
         renderer = DiagramRenderer()
-        return renderer.render_to_tex(self.elements, path, inline_styles=inline_styles, include_colors=include_colors)
+        return renderer.render_to_tex(
+            self.elements, path, inline_styles=inline_styles, include_colors=include_colors
+        )
 
     def render_pdf(
-        self, out_pdf: str | Path, inline_styles: bool = True, include_colors: bool = True
+        self,
+        out_pdf: str | Path,
+        inline_styles: bool = True,
+        include_colors: bool = True,
+        keep_tex: bool | str | Path = True,
     ) -> Path:
         """Render to PDF."""
-        from .renderer import DiagramRenderer
 
         renderer = DiagramRenderer()
-        return renderer.render_to_pdf(self.elements, out_pdf, inline_styles=inline_styles, include_colors=include_colors)
+        return renderer.render_to_pdf(
+            self.elements,
+            out_pdf,
+            inline_styles=inline_styles,
+            include_colors=include_colors,
+            keep_tex=keep_tex,
+        )
 
     def render_png(
         self,
@@ -575,18 +571,34 @@ class Diagram:
         dpi: int = 300,
         inline_styles: bool = True,
         include_colors: bool = True,
+        keep_tex: bool | str | Path = True,
     ) -> Path:
         """Render to PNG."""
-        from .renderer import DiagramRenderer
 
         renderer = DiagramRenderer()
-        return renderer.render_to_png(self.elements, out_png, dpi=dpi, inline_styles=inline_styles, include_colors=include_colors)
+        return renderer.render_to_png(
+            self.elements,
+            out_png,
+            dpi=dpi,
+            inline_styles=inline_styles,
+            include_colors=include_colors,
+            keep_tex=keep_tex,
+        )
 
     def render_svg(
-        self, out_svg: str | Path, inline_styles: bool = True, include_colors: bool = True
+        self,
+        out_svg: str | Path,
+        inline_styles: bool = True,
+        include_colors: bool = True,
+        keep_tex: bool | str | Path = True,
     ) -> Path:
         """Render to SVG (requires pdftocairo)."""
-        from .renderer import DiagramRenderer
 
         renderer = DiagramRenderer()
-        return renderer.render_to_svg(self.elements, out_svg, inline_styles=inline_styles, include_colors=include_colors)
+        return renderer.render_to_svg(
+            self.elements,
+            out_svg,
+            inline_styles=inline_styles,
+            include_colors=include_colors,
+            keep_tex=keep_tex,
+        )
