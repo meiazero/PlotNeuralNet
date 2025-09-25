@@ -1,5 +1,4 @@
-"""Layer generation
-"""
+"""Layer generation"""
 
 from __future__ import annotations
 
