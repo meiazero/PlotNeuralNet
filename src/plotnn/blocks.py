@@ -65,7 +65,11 @@ class Input(Element):
         # Ensure type is str for type checkers (to_input expects str)
         return [
             to_input(
-                str(self.pathfile), to=self.to, width=self.width, height=self.height, name=self.name
+                str(self.pathfile),
+                to=self.to,
+                width=self.width,
+                height=self.height,
+                name=self.name,
             )
         ]
 
@@ -560,44 +564,6 @@ class Diagram:
         return renderer.render_to_pdf(
             self.elements,
             out_pdf,
-            inline_styles=inline_styles,
-            include_colors=include_colors,
-            keep_tex=keep_tex,
-        )
-
-    def render_png(
-        self,
-        out_png: str | Path,
-        dpi: int = 300,
-        inline_styles: bool = True,
-        include_colors: bool = True,
-        keep_tex: bool | str | Path = True,
-    ) -> Path:
-        """Render to PNG."""
-
-        renderer = DiagramRenderer()
-        return renderer.render_to_png(
-            self.elements,
-            out_png,
-            dpi=dpi,
-            inline_styles=inline_styles,
-            include_colors=include_colors,
-            keep_tex=keep_tex,
-        )
-
-    def render_svg(
-        self,
-        out_svg: str | Path,
-        inline_styles: bool = True,
-        include_colors: bool = True,
-        keep_tex: bool | str | Path = True,
-    ) -> Path:
-        """Render to SVG (requires pdftocairo)."""
-
-        renderer = DiagramRenderer()
-        return renderer.render_to_svg(
-            self.elements,
-            out_svg,
             inline_styles=inline_styles,
             include_colors=include_colors,
             keep_tex=keep_tex,

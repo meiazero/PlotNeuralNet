@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -78,58 +77,3 @@ class DiagramRenderer:
 
         # Compile to PDF
         return self.latex_compiler.compile_to_pdf(document, output_path, keep_tex=keep_tex)
-
-    @DeprecationWarning
-    def render_to_png(
-        self,
-        elements: list[Element] | list[str],
-        output_path: str | Path,
-        dpi: int = 300,
-        inline_styles: bool = True,
-        include_colors: bool = True,
-        keep_tex: bool | str | Path = True,
-    ) -> Path:
-        """Render diagram elements to PNG file.
-
-        Mantém o .tex se keep_tex != False.
-        """
-        # First generate PDF in temporary directory (unless queremos manter tex ao lado do png -> gerar pdf no mesmo diretório)
-        if keep_tex is False:
-            with tempfile.TemporaryDirectory() as tmpdir:
-                pdf_path = Path(tmpdir) / "temp.pdf"
-                self.render_to_pdf(
-                    elements, pdf_path, inline_styles, include_colors, keep_tex=False
-                )
-                return self.format_converter.pdf_to_format(
-                    pdf_path, Path(output_path), "png", dpi=dpi
-                )
-        else:
-            # Gerar PDF irmão do PNG
-            png_path = Path(output_path).resolve()
-            pdf_path = png_path.with_suffix(".pdf")
-            # Propagar keep_tex (se for True ou caminho custom) para geração do PDF
-            self.render_to_pdf(elements, pdf_path, inline_styles, include_colors, keep_tex=keep_tex)
-            return self.format_converter.pdf_to_format(pdf_path, png_path, "png", dpi=dpi)
-
-    @DeprecationWarning
-    def render_to_svg(
-        self,
-        elements: list[Element] | list[str],
-        output_path: str | Path,
-        inline_styles: bool = True,
-        include_colors: bool = True,
-        keep_tex: bool | str | Path = True,
-    ) -> Path:
-        """Render diagram elements to SVG file."""
-        if keep_tex is False:
-            with tempfile.TemporaryDirectory() as tmpdir:
-                pdf_path = Path(tmpdir) / "temp.pdf"
-                self.render_to_pdf(
-                    elements, pdf_path, inline_styles, include_colors, keep_tex=False
-                )
-                return self.format_converter.pdf_to_format(pdf_path, Path(output_path), "svg")
-        else:
-            svg_path = Path(output_path).resolve()
-            pdf_path = svg_path.with_suffix(".pdf")
-            self.render_to_pdf(elements, pdf_path, inline_styles, include_colors, keep_tex=keep_tex)
-            return self.format_converter.pdf_to_format(pdf_path, svg_path, "svg")

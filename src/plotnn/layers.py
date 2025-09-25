@@ -65,7 +65,11 @@ def pdf_to_format(
 
 
 def to_input(
-    pathfile: str, to: str = "(-3,0,0)", width: int = 8, height: int = 8, name: str = "temp"
+    pathfile: str,
+    to: str = "(-3,0,0)",
+    width: int = 8,
+    height: int = 8,
+    name: str = "temp",
 ) -> str:
     half_w = width / 2
     half_h = height / 2
