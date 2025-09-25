@@ -24,6 +24,7 @@ def to_head_pkg() -> str:
 \\subimport{{{pathlayers}}}{{init}}
 \\usetikzlibrary{{positioning}}
 \\usetikzlibrary{{3d}}
+\\usetikzlibrary{{calc}}
 """
 
 
@@ -49,6 +50,7 @@ def to_head_inline() -> str:
 \\documentclass[border=8pt, multi, tikz]{standalone}
 \\usetikzlibrary{positioning}
 \\usetikzlibrary{3d}
+\\usetikzlibrary{calc}
 """
         + _inline_layers_tex()
     )
@@ -81,7 +83,16 @@ def to_begin():
 def to_input(
     pathfile: str, to: str = "(-3,0,0)", width: int = 8, height: int = 8, name: str = "temp"
 ) -> str:
-    return f"""\\node[canvas is zy plane at x=0] ({name}) at {to} {{\\includegraphics[width={width}cm,height={height}cm]{{{pathfile}}}}};"""
+    half_w = width / 2
+    half_h = height / 2
+    return (
+        f"\\node[canvas is zy plane at x=0] ({name}) at {to} "
+        f"{{\\includegraphics[width={width}cm,height={height}cm]{{{pathfile}}}}};"
+        f"\\coordinate ({name}-east) at ($({name}.center)+({half_w}cm,0,0)$);"
+        f"\\coordinate ({name}-west) at ($({name}.center)-({half_w}cm,0,0)$);"
+        f"\\coordinate ({name}-north) at ($({name}.center)+(0,{half_h}cm,0)$);"
+        f"\\coordinate ({name}-south) at ($({name}.center)-(0,{half_h}cm,0)$);"
+    )
 
 
 def to_connection(of: str, to: str) -> str:
