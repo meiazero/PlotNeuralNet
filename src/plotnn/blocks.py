@@ -54,6 +54,7 @@ class Input(Element):
     width: int = 8
     height: int = 8
     name: str = "input"
+    anchor_scale: float = 0.01
 
     def __post_init__(self):
         assert self.width > 0, "Width must be positive"
@@ -62,7 +63,6 @@ class Input(Element):
             self.pathfile = self.pathfile.as_posix()
 
     def build(self) -> list[str]:
-        # Ensure type is str for type checkers (to_input expects str)
         return [
             to_input(
                 str(self.pathfile),
@@ -70,6 +70,7 @@ class Input(Element):
                 width=self.width,
                 height=self.height,
                 name=self.name,
+                anchor_scale=self.anchor_scale,
             )
         ]
 

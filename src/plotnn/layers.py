@@ -70,8 +70,9 @@ def to_input(
     width: int = 8,
     height: int = 8,
     name: str = "temp",
+    anchor_scale: float = 0.01,
 ) -> str:
-    half_w = width / 2
+    half_w = width * anchor_scale
     half_h = height / 2
     return (
         f"\\node[canvas is zy plane at x=0] ({name}) at {to} "
