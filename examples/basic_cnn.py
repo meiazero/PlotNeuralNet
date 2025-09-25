@@ -16,7 +16,7 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from plotnn import Diagram, Input, ConvConvRelu, Pool, ConvSoftMax, Connection  # noqa: E402
+from plotnn import Connection, ConvConvRelu, ConvSoftMax, Diagram, Input, Pool  # noqa: E402
 
 
 def main() -> Diagram:
@@ -24,12 +24,9 @@ def main() -> Diagram:
     out_dir = PROJECT_ROOT / "build"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Imagem de entrada reutilizada (se não existir, ignora)
     img_path = PROJECT_ROOT / "models-examples" / "fcn8s" / "cats.jpg"
-    if not img_path.exists():
-        img_path = Path("cats.jpg")
 
-    d.add(Input(pathfile=img_path, name="input", width=5, height=5))
+    d.add(Input(pathfile=img_path, name="input", width=5, height=5, anchor_scale=0.01))
 
     # Primeira conv
     d.add(

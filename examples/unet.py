@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import sys
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
@@ -34,7 +33,7 @@ def main() -> Diagram:
 
     # Imagem de entrada
     img_path = Path(__file__).resolve().parents[1] / "models-examples" / "fcn8s" / "cats.jpg"
-    d.add(Input(pathfile=img_path, name="input", width=6, height=6))
+    d.add(Input(pathfile=img_path, name="input", width=8, height=8, anchor_scale=0.01))
 
     # ---------------- Encoder Nível 1 ----------------
     d.add(
@@ -275,6 +274,7 @@ def main() -> Diagram:
     d.save_tex(out_dir / "unet.tex")
     d.render_pdf(out_dir / "unet.pdf", keep_tex=True)
     return d
+
 
 if __name__ == "__main__":
     main()
