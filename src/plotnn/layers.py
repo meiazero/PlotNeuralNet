@@ -1,53 +1,43 @@
-"""Layer generation functions and legacy compatibility interface."""
+"""Layer generation
+"""
 
 from __future__ import annotations
 
 import logging
+import tempfile
 from pathlib import Path
 
-# Import the new modular components
-from .compiler import LaTeXCompiler, FormatConverter
+from .compiler import FormatConverter, LaTeXCompiler
 from .renderer import DiagramRenderer
-from .templates import LaTeXTemplate, _layers_dir_path
+from .templates import LaTeXTemplate, _layers_dir_path  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
 
-# Legacy compatibility functions - now use the new modular approach
-def _layers_dir_path() -> str:
-    """Get path to layers directory."""
-    from .templates import _layers_dir_path
-    return _layers_dir_path()
-
-
 def to_head_pkg() -> str:
-    """Generate LaTeX header with external packages."""
     return LaTeXTemplate.document_header_external()
 
 
 def to_head_inline() -> str:
-    """Generate LaTeX header with inline styles."""
     return LaTeXTemplate.document_header_inline()
 
 
-def to_colors():
-    """Generate color definitions."""
+def to_colors() -> str:
     return LaTeXTemplate.color_definitions()
 
 
-def to_begin():
-    """Generate document begin."""
+def to_begin() -> str:
     return LaTeXTemplate.document_begin()
 
 
 def to_end() -> str:
-    """Generate document end."""
     return LaTeXTemplate.document_end()
 
 
 def to_document(arch: list[str], inline_styles: bool = True, include_colors: bool = True) -> str:
-    """Generate complete LaTeX document."""
-    return LaTeXTemplate.full_document(arch, inline_styles=inline_styles, include_colors=include_colors)
+    return LaTeXTemplate.full_document(
+        arch, inline_styles=inline_styles, include_colors=include_colors
+    )
 
 
 def to_generate(
@@ -56,30 +46,28 @@ def to_generate(
     inline_styles: bool = True,
     include_colors: bool = True,
 ) -> None:
-    """Generate LaTeX file (legacy compatibility)."""
-    renderer = DiagramRenderer()
-    renderer.render_to_tex(arch, pathname, inline_styles=inline_styles, include_colors=include_colors)
+    DiagramRenderer().render_to_tex(
+        arch, pathname, inline_styles=inline_styles, include_colors=include_colors
+    )
 
 
-def compile_tex_to_pdf(tex_content: str, out_pdf: str | Path) -> Path:
-    """Compile LaTeX to PDF (legacy compatibility)."""
+def compile_tex_to_pdf(
+    tex_content: str, out_pdf: str | Path, keep_tex: bool | str | Path = True
+) -> Path:
     compiler = LaTeXCompiler()
-    return compiler.compile_to_pdf(tex_content, out_pdf)
+    return compiler.compile_to_pdf(tex_content, out_pdf, keep_tex=keep_tex)
 
 
 def pdf_to_format(
     pdf_path: Path, out_path: Path, format: str, dpi: int = 300, page: int = 1
 ) -> Path:
-    """Convert PDF to other format (legacy compatibility)."""
     converter = FormatConverter()
     return converter.pdf_to_format(pdf_path, out_path, format, dpi=dpi, page=page)
 
 
-# Layer generation functions
 def to_input(
     pathfile: str, to: str = "(-3,0,0)", width: int = 8, height: int = 8, name: str = "temp"
 ) -> str:
-    """Generate input layer LaTeX."""
     half_w = width / 2
     half_h = height / 2
     return (
@@ -93,7 +81,6 @@ def to_input(
 
 
 def to_connection(of: str, to: str) -> str:
-    """Generate connection LaTeX."""
     return f"\\draw [connection]  ({of}-east)    -- node {{\\midarrow}} ({to}-west);"
 
 
@@ -298,110 +285,15 @@ def to_skip(of: str, to: str, pos: float = 1.25) -> str:
 -- node {{\\copymidarrow}} ({to}-north);"""
 
 
-def to_end() -> str:
-    return """
-\\end{tikzpicture}
-\\end{document}
-"""
-
-
-def to_document(arch: list[str], inline_styles: bool = True, include_colors: bool = True) -> str:
-    head = to_head_inline() if inline_styles else to_head_pkg()
-    parts = [head]
-    if include_colors:
-        parts.append(to_colors())
-    parts.append(to_begin())
-    parts.extend(arch)
-    parts.append(to_end())
-    return "".join(parts)
-
-
-def to_generate(
+def generate_pdf(
     arch: list[str],
-    pathname: str = "file.tex",
+    out_pdf: str | Path,
     inline_styles: bool = True,
     include_colors: bool = True,
-) -> None:
-    doc = to_document(arch, inline_styles=inline_styles, include_colors=include_colors)
-    with open(pathname, "w", encoding="utf-8") as f:
-        f.write(doc)
-
-
-def compile_tex_to_pdf(tex_content: str, out_pdf: str | Path) -> Path:
-    out_pdf_path = Path(out_pdf).resolve()
-    out_pdf_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp = Path(tmpdir)
-        tex_file = tmp / "diagram.tex"
-        tex_file.write_text(tex_content, encoding="utf-8")
-
-        if shutil.which("latexmk"):
-            cmd = ["latexmk", "-pdf", "-interaction=nonstopmode", tex_file.name]
-        else:
-            cmd = ["pdflatex", "-interaction=nonstopmode", tex_file.name]
-            subprocess.run(cmd, cwd=tmp, check=False)  # Second pass
-            subprocess.run(cmd, cwd=tmp, check=True)
-
-        produced = tmp / "diagram.pdf"
-        if not produced.exists():
-            raise RuntimeError("LaTeX compilation failed to produce PDF. Check logs.")
-        shutil.copyfile(produced, out_pdf_path)
-    logger.info(f"PDF generated at {out_pdf_path}")
-    return out_pdf_path
-
-
-def pdf_to_format(
-    pdf_path: Path, out_path: Path, format: str, dpi: int = 300, page: int = 1
-) -> Path:
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    if format not in ("png", "svg"):
-        raise ValueError("Format must be 'png' or 'svg'")
-
-    tool = shutil.which("pdftocairo")
-    if tool:
-        args = ["-r", str(dpi), f"-f{page}", f"-l{page}", str(pdf_path), "-singlefile"]
-        if format == "png":
-            cmd = [tool, "-png"] + args + [str(out_path.with_suffix("").as_posix())]
-        else:
-            cmd = [tool, "-svg"] + args + [str(out_path)]
-        subprocess.run(cmd, check=True)
-        return out_path
-
-    if format == "svg":
-        raise RuntimeError("SVG requires pdftocairo.")
-
-    im = shutil.which("magick") or shutil.which("convert")
-    if im:
-        cmd = [im, "-density", str(dpi), f"{pdf_path}[{page-1}]", "-quality", "100", str(out_path)]
-        subprocess.run(cmd, check=True)
-        return out_path
-
-    gs = shutil.which("gs")
-    if gs:
-        cmd = [
-            gs,
-            "-dSAFER",
-            "-dBATCH",
-            "-dNOPAUSE",
-            "-sDEVICE=pngalpha",
-            f"-r{dpi}",
-            f"-dFirstPage={page}",
-            f"-dLastPage={page}",
-            f"-sOutputFile={out_path}",
-            str(pdf_path),
-        ]
-        subprocess.run(cmd, check=True)
-        return out_path
-
-    raise RuntimeError(f"No tool found for {format} conversion (pdftocairo/ImageMagick/gs).")
-
-
-def generate_pdf(
-    arch: list[str], out_pdf: str | Path, inline_styles: bool = True, include_colors: bool = True
+    keep_tex: bool | str | Path = True,
 ) -> Path:
     doc = to_document(arch, inline_styles=inline_styles, include_colors=include_colors)
-    return compile_tex_to_pdf(doc, out_pdf)
+    return compile_tex_to_pdf(doc, out_pdf, keep_tex=keep_tex)
 
 
 def generate_png(
@@ -410,17 +302,56 @@ def generate_png(
     dpi: int = 300,
     inline_styles: bool = True,
     include_colors: bool = True,
+    keep_tex: bool | str | Path = True,
 ) -> Path:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        pdf_path = Path(tmpdir) / "temp.pdf"
-        generate_pdf(arch, pdf_path, inline_styles=inline_styles, include_colors=include_colors)
-        return pdf_to_format(pdf_path, Path(out_png), "png", dpi=dpi)
+    out_png_path = Path(out_png).resolve()
+    if keep_tex is False:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pdf_tmp = Path(tmpdir) / "temp.pdf"
+            generate_pdf(
+                arch,
+                pdf_tmp,
+                inline_styles=inline_styles,
+                include_colors=include_colors,
+                keep_tex=False,
+            )
+            return pdf_to_format(pdf_tmp, out_png_path, "png", dpi=dpi)
+    pdf_path = out_png_path.with_suffix(".pdf")
+    generate_pdf(
+        arch,
+        pdf_path,
+        inline_styles=inline_styles,
+        include_colors=include_colors,
+        keep_tex=keep_tex,
+    )
+    return pdf_to_format(pdf_path, out_png_path, "png", dpi=dpi)
 
 
 def generate_svg(
-    arch: list[str], out_svg: str | Path, inline_styles: bool = True, include_colors: bool = True
+    arch: list[str],
+    out_svg: str | Path,
+    inline_styles: bool = True,
+    include_colors: bool = True,
+    keep_tex: bool | str | Path = True,
 ) -> Path:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        pdf_path = Path(tmpdir) / "temp.pdf"
-        generate_pdf(arch, pdf_path, inline_styles=inline_styles, include_colors=include_colors)
-        return pdf_to_format(pdf_path, Path(out_svg), "svg")
+    out_svg_path = Path(out_svg).resolve()
+    if keep_tex is False:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pdf_tmp = Path(tmpdir) / "temp.pdf"
+            generate_pdf(
+                arch,
+                pdf_tmp,
+                inline_styles=inline_styles,
+                include_colors=include_colors,
+                keep_tex=False,
+            )
+            return pdf_to_format(pdf_tmp, out_svg_path, "svg")
+    pdf_path = out_svg_path.with_suffix(".pdf")
+    generate_pdf(
+        arch,
+        pdf_path,
+        inline_styles=inline_styles,
+        include_colors=include_colors,
+        keep_tex=keep_tex,
+    )
+    return pdf_to_format(pdf_path, out_svg_path, "svg")
