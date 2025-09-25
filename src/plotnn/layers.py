@@ -1,86 +1,85 @@
+"""Layer generation functions and legacy compatibility interface."""
+
 from __future__ import annotations
 
 import logging
-import shutil
-import subprocess
-import tempfile
 from pathlib import Path
+
+# Import the new modular components
+from .compiler import LaTeXCompiler, FormatConverter
+from .renderer import DiagramRenderer
+from .templates import LaTeXTemplate, _layers_dir_path
 
 logger = logging.getLogger(__name__)
 
 
+# Legacy compatibility functions - now use the new modular approach
 def _layers_dir_path() -> str:
-    path = Path(__file__).parent / "layers"
-    return str(path.resolve()).replace("\\", "/")
+    """Get path to layers directory."""
+    from .templates import _layers_dir_path
+    return _layers_dir_path()
 
 
 def to_head_pkg() -> str:
-    pathlayers = _layers_dir_path()
-    if not pathlayers.endswith("/"):
-        pathlayers += "/"
-    return f"""\\documentclass[border=8pt, multi, tikz]{{standalone}}
-\\usepackage{{import}}
-\\subimport{{{pathlayers}}}{{init}}
-\\usetikzlibrary{{positioning}}
-\\usetikzlibrary{{3d}}
-\\usetikzlibrary{{calc}}
-"""
-
-
-def _read_pkg_text(*rel_parts: str) -> str:
-    p = Path(__file__).parent.joinpath(*rel_parts)
-    return p.read_text(encoding="utf-8")
-
-
-def _inline_layers_tex() -> str:
-    parts: list[str] = []
-    init = _read_pkg_text("layers", "init.tex")
-    parts.append(init)
-    for sty in ("Ball.sty", "Box.sty", "RightBandedBox.sty"):
-        txt = _read_pkg_text("layers", sty)
-        lines = [ln for ln in txt.splitlines() if not ln.lstrip().startswith("\\ProvidesPackage")]
-        parts.append("\n".join(lines))
-    return "\n".join(parts) + "\n"
+    """Generate LaTeX header with external packages."""
+    return LaTeXTemplate.document_header_external()
 
 
 def to_head_inline() -> str:
-    return (
-        """\\documentclass[border=8pt, multi, tikz]{standalone}
-\\usetikzlibrary{positioning}
-\\usetikzlibrary{3d}
-\\usetikzlibrary{calc}
-"""
-        + _inline_layers_tex()
-    )
+    """Generate LaTeX header with inline styles."""
+    return LaTeXTemplate.document_header_inline()
 
 
 def to_colors():
-    return """
-\\def\\ConvColor{rgb:yellow,5;red,2.5;white,5}
-\\def\\ConvReluColor{rgb:yellow,5;red,5;white,5}
-\\def\\PoolColor{rgb:red,1;black,0.3}
-\\def\\UnpoolColor{rgb:blue,2;green,1;black,0.3}
-\\def\\FcColor{rgb:blue,5;red,2.5;white,5}
-\\def\\FcReluColor{rgb:blue,5;red,5;white,4}
-\\def\\SoftmaxColor{rgb:magenta,5;black,7}
-\\def\\SumColor{rgb:blue,5;green,15}
-"""
+    """Generate color definitions."""
+    return LaTeXTemplate.color_definitions()
 
 
 def to_begin():
-    return """
-\\newcommand{\\copymidarrow}{\\tikz \\draw[-Stealth,line width=0.8mm,draw={rgb:blue,4;red,1;green,1;black,3}] (-0.3,0) -- ++(0.3,0);}
-
-\\begin{document}
-\\begin{tikzpicture}
-\\tikzstyle{connection}=[ultra thick,every node/.style={sloped,allow upside down},draw=\\edgecolor,opacity=0.7]
-\\tikzstyle{copyconnection}=[ultra thick,every node/.style={sloped,allow upside down},draw={rgb:blue,4;red,1;green,1;black,3},opacity=0.7]
-"""
+    """Generate document begin."""
+    return LaTeXTemplate.document_begin()
 
 
+def to_end() -> str:
+    """Generate document end."""
+    return LaTeXTemplate.document_end()
+
+
+def to_document(arch: list[str], inline_styles: bool = True, include_colors: bool = True) -> str:
+    """Generate complete LaTeX document."""
+    return LaTeXTemplate.full_document(arch, inline_styles=inline_styles, include_colors=include_colors)
+
+
+def to_generate(
+    arch: list[str],
+    pathname: str = "file.tex",
+    inline_styles: bool = True,
+    include_colors: bool = True,
+) -> None:
+    """Generate LaTeX file (legacy compatibility)."""
+    renderer = DiagramRenderer()
+    renderer.render_to_tex(arch, pathname, inline_styles=inline_styles, include_colors=include_colors)
+
+
+def compile_tex_to_pdf(tex_content: str, out_pdf: str | Path) -> Path:
+    """Compile LaTeX to PDF (legacy compatibility)."""
+    compiler = LaTeXCompiler()
+    return compiler.compile_to_pdf(tex_content, out_pdf)
+
+
+def pdf_to_format(
+    pdf_path: Path, out_path: Path, format: str, dpi: int = 300, page: int = 1
+) -> Path:
+    """Convert PDF to other format (legacy compatibility)."""
+    converter = FormatConverter()
+    return converter.pdf_to_format(pdf_path, out_path, format, dpi=dpi, page=page)
+
+
+# Layer generation functions
 def to_input(
     pathfile: str, to: str = "(-3,0,0)", width: int = 8, height: int = 8, name: str = "temp"
 ) -> str:
+    """Generate input layer LaTeX."""
     half_w = width / 2
     half_h = height / 2
     return (
@@ -94,6 +93,7 @@ def to_input(
 
 
 def to_connection(of: str, to: str) -> str:
+    """Generate connection LaTeX."""
     return f"\\draw [connection]  ({of}-east)    -- node {{\\midarrow}} ({to}-west);"
 
 

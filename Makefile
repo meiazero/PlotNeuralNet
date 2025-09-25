@@ -16,4 +16,4 @@ build:
 	rm -rf dist && poetry build -n --output=$(OUTDIR)
 
 example:
-	$(PY) src/example.py
+	$(PY) ./examples/example.py

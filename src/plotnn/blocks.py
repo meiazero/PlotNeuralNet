@@ -542,32 +542,32 @@ class Diagram:
 
     def to_tex(self, inline_styles: bool = True, include_colors: bool = True) -> str:
         """Generate full LaTeX document."""
-        from .layers import to_document
+        from .templates import LaTeXTemplate
 
-        return to_document(self.build(), inline_styles=inline_styles, include_colors=include_colors)
+        # Build the LaTeX content from elements
+        latex_parts = []
+        for element in self.elements:
+            latex_parts.extend(element.build())
+
+        return LaTeXTemplate.full_document(latex_parts, inline_styles=inline_styles, include_colors=include_colors)
 
     def save_tex(
         self, path: str | Path, inline_styles: bool = True, include_colors: bool = True
     ) -> Path:
         """Save LaTeX to file."""
-        from .layers import to_generate
+        from .renderer import DiagramRenderer
 
-        if isinstance(path, Path):
-            path = path.as_posix()
-        to_generate(
-            self.build(), pathname=path, inline_styles=inline_styles, include_colors=include_colors
-        )
-        return Path(path)
+        renderer = DiagramRenderer()
+        return renderer.render_to_tex(self.elements, path, inline_styles=inline_styles, include_colors=include_colors)
 
     def render_pdf(
         self, out_pdf: str | Path, inline_styles: bool = True, include_colors: bool = True
     ) -> Path:
         """Render to PDF."""
-        from .layers import generate_pdf
+        from .renderer import DiagramRenderer
 
-        return generate_pdf(
-            self.build(), out_pdf, inline_styles=inline_styles, include_colors=include_colors
-        )
+        renderer = DiagramRenderer()
+        return renderer.render_to_pdf(self.elements, out_pdf, inline_styles=inline_styles, include_colors=include_colors)
 
     def render_png(
         self,
@@ -577,22 +577,16 @@ class Diagram:
         include_colors: bool = True,
     ) -> Path:
         """Render to PNG."""
-        from .layers import generate_png
+        from .renderer import DiagramRenderer
 
-        return generate_png(
-            self.build(),
-            out_png,
-            dpi=dpi,
-            inline_styles=inline_styles,
-            include_colors=include_colors,
-        )
+        renderer = DiagramRenderer()
+        return renderer.render_to_png(self.elements, out_png, dpi=dpi, inline_styles=inline_styles, include_colors=include_colors)
 
     def render_svg(
         self, out_svg: str | Path, inline_styles: bool = True, include_colors: bool = True
     ) -> Path:
         """Render to SVG (requires pdftocairo)."""
-        from .layers import generate_svg
+        from .renderer import DiagramRenderer
 
-        return generate_svg(
-            self.build(), out_svg, inline_styles=inline_styles, include_colors=include_colors
-        )
+        renderer = DiagramRenderer()
+        return renderer.render_to_svg(self.elements, out_svg, inline_styles=inline_styles, include_colors=include_colors)
