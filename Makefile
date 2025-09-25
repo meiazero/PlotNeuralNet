@@ -2,7 +2,7 @@ PY=poetry run python
 RUFF=poetry run ruff
 BLACK=poetry run black
 
-.PHONY: lint format build example-simple example-unet
+.PHONY: lint format build
 
 lint:
 	$(RUFF) check .
