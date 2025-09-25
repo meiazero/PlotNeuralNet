@@ -106,23 +106,18 @@ class LaTeXTemplate:
         """Generate complete LaTeX document."""
         parts = []
 
-        # Header
         if inline_styles:
             parts.append(cls.document_header_inline())
         else:
             parts.append(cls.document_header_external())
 
-        # Colors
         if include_colors:
             parts.append(cls.color_definitions())
 
-        # Begin
         parts.append(cls.document_begin())
 
-        # Content
         parts.extend(content)
 
-        # End
         parts.append(cls.document_end())
 
         return "".join(parts)
