@@ -139,10 +139,9 @@ class FormatConverter:
     ) -> Path:
         """Convert using pdftocairo."""
         tool = shutil.which("pdftocairo")
-        args = ["-r", str(dpi), f"-f={page}", f"-l={page}", str(pdf_path), "-singlefile"]
+        args = [f"-r {dpi}", f"-f {page}", f"-l {page}", str(pdf_path), "-singlefile"]
 
         if format == "png":
-            # For PNG, pdftocairo adds the extension automatically, so we need to provide the path without extension
             base_path = out_path.with_suffix("")
             cmd = [tool, "-png"] + args + [str(base_path)]
         else:  # svg
