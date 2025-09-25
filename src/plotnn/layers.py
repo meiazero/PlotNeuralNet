@@ -18,8 +18,7 @@ def to_head_pkg() -> str:
     pathlayers = _layers_dir_path()
     if not pathlayers.endswith("/"):
         pathlayers += "/"
-    return f"""
-\\documentclass[border=8pt, multi, tikz]{{standalone}}
+    return f"""\\documentclass[border=8pt, multi, tikz]{{standalone}}
 \\usepackage{{import}}
 \\subimport{{{pathlayers}}}{{init}}
 \\usetikzlibrary{{positioning}}
@@ -46,8 +45,7 @@ def _inline_layers_tex() -> str:
 
 def to_head_inline() -> str:
     return (
-        """
-\\documentclass[border=8pt, multi, tikz]{standalone}
+        """\\documentclass[border=8pt, multi, tikz]{standalone}
 \\usetikzlibrary{positioning}
 \\usetikzlibrary{3d}
 \\usetikzlibrary{calc}
