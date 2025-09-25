@@ -31,8 +31,14 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     tex_path = out_dir / "diagram.tex"
+    pdf_path = out_dir / "diagram.pdf"
+    png_path = out_dir / "diagram.png"
+    svg_path = out_dir / "diagram.svg"
 
     d.save_tex(path=tex_path.as_posix(), inline_styles=True)
+    d.render_pdf(pdf_path, inline_styles=True)
+    d.render_png(png_path, dpi=300, inline_styles=True)
+    d.render_svg(svg_path, inline_styles=True)
 
 
 if __name__ == "__main__":
