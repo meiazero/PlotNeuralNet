@@ -22,185 +22,259 @@ from plotnn import (
 )
 
 
-def _add_encoder_stage(
-    d: Diagram,
-    name: str,
-    prev: str,
-    n_filt: int,
-    size_hw: int,
-    depth: int,
-    width_pair: tuple[int, int],
-    pool_opacity: float = 0.5,
-):
-    """Adiciona um bloco encoder (ConvConvRelu + Pool + Connection)."""
-    ccr_name = f"enc_{name}"
-    pool_name = f"pool_{name}"
-    d.add(
-        ConvConvRelu(
-            name=ccr_name,
-            s_filer=n_filt * 2,  # apenas para variar o label z
-            n_filer=(n_filt, n_filt),
-            offset="(1.2,0,0)",
-            to=f"({prev}-east)",
-            width=width_pair,
-            height=size_hw,
-            depth=size_hw,
-        )
-    )
-    d.add(
-        Pool(
-            name=pool_name,
-            offset="(0,0,0)",
-            to=f"({ccr_name}-east)",
-            width=1,
-            height=max(4, size_hw - size_hw // 4),
-            depth=max(4, size_hw - size_hw // 4),
-            opacity=pool_opacity,
-        )
-    )
-    d.add(Connection(prev, ccr_name))
-    return ccr_name, pool_name
-
-
-def _add_decoder_stage(
-    d: Diagram,
-    name: str,
-    prev: str,
-    skip_from: str,
-    n_filt: int,
-    size_hw: int,
-    width_pair: tuple[int, int],
-):
-    """Adiciona um bloco decoder (UnPool + ConvConvRelu + Skip)."""
-    un_name = f"unpool_{name}"
-    dec_name = f"dec_{name}"
-    d.add(
-        UnPool(
-            name=un_name,
-            offset="(1.4,0,0)",
-            to=f"({prev}-east)",
-            width=1,
-            height=size_hw,
-            depth=size_hw,
-            opacity=0.5,
-        )
-    )
-    d.add(
-        ConvConvRelu(
-            name=dec_name,
-            s_filer=n_filt * 2,
-            n_filer=(n_filt, n_filt),
-            offset="(0,0,0)",
-            to=f"({un_name}-east)",
-            width=width_pair,
-            height=size_hw,
-            depth=size_hw,
-        )
-    )
-    d.add(Connection(prev, un_name))
-    d.add(Skip(of=skip_from, to=dec_name, pos=1.25))
-    return dec_name
-
-
 def main() -> Diagram:
-    """Gera o diagrama UNet e renderiza em PDF."""
+    """Gera o diagrama UNet de forma sequencial (cada camada explícita).
+
+    Estrutura: 4 níveis encoder -> bottleneck -> 4 níveis decoder com skips.
+    """
 
     d = Diagram()
     out_dir = Path(__file__).resolve().parents[1] / "build"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Caminho da imagem de exemplo (já existente no repo)
+    # Imagem de entrada
     img_path = Path(__file__).resolve().parents[1] / "models-examples" / "fcn8s" / "cats.jpg"
-    if not img_path.exists():  # fallback para evitar falha
-        img_path = Path("cats.jpg")
-
     d.add(Input(pathfile=img_path, name="input", width=6, height=6))
 
-    # Encoder -----------------------------------------------------------------
-    enc_specs = [
-        ("1", 64, 40, 40, (2, 2)),
-        ("2", 128, 32, 32, (3, 3)),
-        ("3", 256, 24, 24, (4, 4)),
-        ("4", 512, 16, 16, (5, 5)),
-    ]
-
-    last_name = "input"
-    encoder_blocks: list[str] = []  # nomes dos ccr encoder para skip
-    pool_names: list[str] = []
-    for name, nf, h, dsize, width_pair in enc_specs:
-        ccr_name, pool_name = _add_encoder_stage(
-            d,
-            name=name,
-            prev=last_name,
-            n_filt=nf,
-            size_hw=h,
-            depth=dsize,
-            width_pair=width_pair,
-        )
-        encoder_blocks.append(ccr_name)
-        pool_names.append(pool_name)
-        last_name = pool_name
-
-    # Bottleneck --------------------------------------------------------------
-    bottleneck_name = "bottleneck"
+    # ---------------- Encoder Nível 1 ----------------
     d.add(
         ConvConvRelu(
-            name=bottleneck_name,
+            name="enc_1",
+            s_filer=128,
+            n_filer=(64, 64),
+            offset="(1.2,0,0)",
+            to="(input-east)",
+            width=(2, 2),
+            height=40,
+            depth=40,
+        )
+    )
+    d.add(Connection("input", "enc_1"))
+    d.add(
+        Pool(
+            name="pool_1",
+            to="(enc_1-east)",
+            height=30,
+            depth=30,
+            width=1,
+            opacity=0.5,
+        )
+    )
+
+    # ---------------- Encoder Nível 2 ----------------
+    d.add(
+        ConvConvRelu(
+            name="enc_2",
+            s_filer=256,
+            n_filer=(128, 128),
+            offset="(1.2,0,0)",
+            to="(pool_1-east)",
+            width=(3, 3),
+            height=32,
+            depth=32,
+        )
+    )
+    d.add(Connection("pool_1", "enc_2"))
+    d.add(
+        Pool(
+            name="pool_2",
+            to="(enc_2-east)",
+            height=24,
+            depth=24,
+            width=1,
+            opacity=0.5,
+        )
+    )
+
+    # ---------------- Encoder Nível 3 ----------------
+    d.add(
+        ConvConvRelu(
+            name="enc_3",
+            s_filer=512,
+            n_filer=(256, 256),
+            offset="(1.2,0,0)",
+            to="(pool_2-east)",
+            width=(4, 4),
+            height=24,
+            depth=24,
+        )
+    )
+    d.add(Connection("pool_2", "enc_3"))
+    d.add(
+        Pool(
+            name="pool_3",
+            to="(enc_3-east)",
+            height=18,
+            depth=18,
+            width=1,
+            opacity=0.5,
+        )
+    )
+
+    # ---------------- Encoder Nível 4 ----------------
+    d.add(
+        ConvConvRelu(
+            name="enc_4",
             s_filer=1024,
+            n_filer=(512, 512),
+            offset="(1.4,0,0)",
+            to="(pool_3-east)",
+            width=(5, 5),
+            height=16,
+            depth=16,
+        )
+    )
+    d.add(Connection("pool_3", "enc_4"))
+    d.add(
+        Pool(
+            name="pool_4",
+            to="(enc_4-east)",
+            height=12,
+            depth=12,
+            width=1,
+            opacity=0.5,
+        )
+    )
+
+    # ---------------- Bottleneck ----------------
+    d.add(
+        ConvConvRelu(
+            name="bottleneck",
+            s_filer=2048,
             n_filer=(1024, 1024),
             offset="(1.6,0,0)",
-            to=f"({last_name}-east)",
+            to="(pool_4-east)",
             width=(6, 6),
             height=12,
             depth=12,
             caption="Bottleneck",
         )
     )
-    d.add(Connection(last_name, bottleneck_name))
+    d.add(Connection("pool_4", "bottleneck"))
 
-    # Decoder -----------------------------------------------------------------
-    # Percorre encoder invertido para criar estágios decoder
-    decoder_specs = [
-        ("4", 512, 16, (5, 5)),
-        ("3", 256, 24, (4, 4)),
-        ("2", 128, 32, (3, 3)),
-        ("1", 64, 40, (2, 2)),
-    ]
-
-    prev_name = bottleneck_name
-    for name, nf, h, width_pair in decoder_specs:
-        skip_from = f"enc_{name}"  # nome do encoder correspondente
-        prev_name = _add_decoder_stage(
-            d,
-            name=name,
-            prev=prev_name,
-            skip_from=skip_from,
-            n_filt=nf,
-            size_hw=h,
-            width_pair=width_pair,
+    # ---------------- Decoder Nível 4 ----------------
+    d.add(
+        UnPool(
+            name="unpool_4",
+            offset="(1.4,0,0)",
+            to="(bottleneck-east)",
+            width=1,
+            height=16,
+            depth=16,
+            opacity=0.5,
         )
+    )
+    d.add(Connection("bottleneck", "unpool_4"))
+    d.add(
+        ConvConvRelu(
+            name="dec_4",
+            s_filer=1024,
+            n_filer=(512, 512),
+            to="(unpool_4-east)",
+            width=(5, 5),
+            height=16,
+            depth=16,
+        )
+    )
+    d.add(Skip(of="enc_4", to="dec_4", pos=1.25))
 
-    # Camada de saída (ex: mapa de classes)
+    # ---------------- Decoder Nível 3 ----------------
+    d.add(
+        UnPool(
+            name="unpool_3",
+            offset="(1.4,0,0)",
+            to="(dec_4-east)",
+            width=1,
+            height=24,
+            depth=24,
+            opacity=0.5,
+        )
+    )
+    d.add(Connection("dec_4", "unpool_3"))
+    d.add(
+        ConvConvRelu(
+            name="dec_3",
+            s_filer=512,
+            n_filer=(256, 256),
+            to="(unpool_3-east)",
+            width=(4, 4),
+            height=24,
+            depth=24,
+        )
+    )
+    d.add(Skip(of="enc_3", to="dec_3", pos=1.25))
+
+    # ---------------- Decoder Nível 2 ----------------
+    d.add(
+        UnPool(
+            name="unpool_2",
+            offset="(1.4,0,0)",
+            to="(dec_3-east)",
+            width=1,
+            height=32,
+            depth=32,
+            opacity=0.5,
+        )
+    )
+    d.add(Connection("dec_3", "unpool_2"))
+    d.add(
+        ConvConvRelu(
+            name="dec_2",
+            s_filer=256,
+            n_filer=(128, 128),
+            to="(unpool_2-east)",
+            width=(3, 3),
+            height=32,
+            depth=32,
+        )
+    )
+    d.add(Skip(of="enc_2", to="dec_2", pos=1.25))
+
+    # ---------------- Decoder Nível 1 ----------------
+    d.add(
+        UnPool(
+            name="unpool_1",
+            offset="(1.4,0,0)",
+            to="(dec_2-east)",
+            width=1,
+            height=40,
+            depth=40,
+            opacity=0.5,
+        )
+    )
+    d.add(Connection("dec_2", "unpool_1"))
+    d.add(
+        ConvConvRelu(
+            name="dec_1",
+            s_filer=128,
+            n_filer=(64, 64),
+            to="(unpool_1-east)",
+            width=(2, 2),
+            height=40,
+            depth=40,
+        )
+    )
+    d.add(Skip(of="enc_1", to="dec_1", pos=1.25))
+
+    # ---------------- Saída ----------------
     d.add(
         ConvSoftMax(
             name="output",
-            s_filer=2,  # supondo segmentação binária
+            s_filer=2,
+            to="(dec_1-east)",
             offset="(1.4,0,0)",
-            to=f"({prev_name}-east)",
             width=1,
             height=40,
             depth=40,
             caption="Softmax",
         )
     )
-    d.add(Connection(prev_name, "output"))
+    d.add(Connection("dec_1", "output"))
 
-    pdf_path = out_dir / "unet.pdf"
-    d.save_tex(path=out_dir / "unet.tex")
-    d.render_pdf(pdf_path, keep_tex=True)
-
+    # Renderização
+    d.save_tex(out_dir / "unet.tex")
+    d.render_pdf(out_dir / "unet.pdf", keep_tex=True)
     return d
-
 
 if __name__ == "__main__":
     main()
